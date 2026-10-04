@@ -1,6 +1,5 @@
 import { StackHandler } from "@stackframe/stack";
-import { stackServerApp } from "../../../stack/server";
+import { stackServerApp } from "../../../stack/server"; // نفس مسار استيرادك
 
-export default function Handler(props: unknown) {
-  return <StackHandler fullPage app={stackServerApp} routeProps={props} />;
-}
+export const GET = StackHandler(stackServerApp);
+export const POST = StackHandler(stackServerApp);
