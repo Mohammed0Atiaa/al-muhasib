@@ -151,3 +151,106 @@ model DocumentCounter {
 
   @@unique([companyId, branchId, docType])
 }
+model Invoice {
+  id              String    @id @default(cuid())
+  companyId       String
+  branchId        String
+  warehouseId     String
+  customerId      String?
+  number          String
+  status          String    @default("POSTED")
+  currency        String
+  exchangeRate    Decimal   @default(1) @db.Decimal(18, 8)
+  subtotal        Decimal   @db.Decimal(18, 3)
+  discountType    String    @default("NONE")
+  discountValue   Decimal   @default(0) @db.Decimal(18, 3)
+  discountAmount  Decimal   @default(0) @db.Decimal(18, 3)
+  total           Decimal   @db.Decimal(18, 3)
+  paidAmount      Decimal   @default(0) @db.Decimal(18, 3)
+  balanceDue      Decimal   @default(0) @db.Decimal(18, 3)
+  notes           String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  voidedAt        DateTime?
+  voidedByUserId  String?
+  voidReason      String?
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@unique([companyId, number])
+  @@index([companyId, branchId, createdAt])
+  @@index([customerId])
+}
+
+model InvoiceItem {
+  id            String  @id @default(cuid())
+  invoiceId     String
+  productId     String
+  name          String
+  quantity      Int
+  unitPrice     Decimal @db.Decimal(18, 3)
+  unitCost      Decimal @default(0) @db.Decimal(18, 3)
+  discountType  String  @default("NONE")
+  discountValue Decimal @default(0) @db.Decimal(18, 3)
+  lineTotal     Decimal @db.Decimal(18, 3)
+  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  method    String
+  amount    Decimal  @db.Decimal(18, 3)
+  paidAt    DateTime @default(now())
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model JournalEntry {
+  id              String   @id @default(cuid())
+  companyId       String
+  branchId        String?
+  entryDate       DateTime @default(now())
+  description     String
+  sourceType      String
+  sourceId        String?
+  reversalOfId    String?
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  lines JournalLine[]
+
+  @@index([companyId, entryDate])
+  @@index([sourceType, sourceId])
+}
+
+model JournalLine {
+  id         String       @id @default(cuid())
+  entryId    String
+  accountId  String
+  customerId String?
+  debit      Decimal      @default(0) @db.Decimal(18, 3)
+  credit     Decimal      @default(0) @db.Decimal(18, 3)
+  entry      JournalEntry @relation(fields: [entryId], references: [id])
+
+  @@index([entryId])
+  @@index([accountId])
+  @@index([customerId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, entityType, entityId])
+}
