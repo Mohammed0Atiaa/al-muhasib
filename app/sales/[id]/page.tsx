@@ -153,6 +153,16 @@ export default async function SaleDetailPage({ params }: PageProps) {
             </div>
           </div>
 
+          {/* عرض البيان / الملاحظات إذا وجدت */}
+          {invoice.notes && (
+            <div className="bg-white p-4 rounded-xl border border-gray-200 mb-6">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase mb-1">
+                البيان / ملاحظات الفاتورة (العنوان، التركيب، التسليم)
+              </h3>
+              <p className="text-sm text-gray-800 whitespace-pre-line">{invoice.notes}</p>
+            </div>
+          )}
+
           {/* جدول بنود الفاتورة */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
             <div className="p-4 border-b border-gray-100 bg-gray-50">
