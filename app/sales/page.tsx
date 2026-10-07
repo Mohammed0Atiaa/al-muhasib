@@ -69,8 +69,8 @@ const collected = new Map(allocs.map((a) => [a.invoiceId, Number(a._sum.amount ?
                 <td className="p-2">{i.createdAt.toISOString().slice(0, 10)}</td>
                 <td className="p-2">{i.customerId ? names.get(i.customerId) ?? "-" : "نقدي"}</td>
                 <td className="p-2">{money(i.total)} {i.currency}</td>
-                <td className="p-2">{money(i.paidAmount)}</td>
-                <td className="p-2">{money(i.balanceDue)}</td>
+                <td className="p-2">{money(Number(i.paidAmount) + (collected.get(i.id) ?? 0))}</td>
+<td className="p-2">{money(Math.max(Number(i.balanceDue) - (collected.get(i.id) ?? 0), 0))}</td>
                 <td className="p-2">{i.status}</td>
               </tr>
             ))}
