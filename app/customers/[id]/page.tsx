@@ -18,16 +18,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     const membership = await getMembership(user.id);
     const companyId = membership.companyId;
 
-    // جلب بيانات العميل وفواتيره
+    // جلب بيانات العميل
     const customer = await prisma.customer.findFirst({
       where: {
         id: params.id,
         companyId: companyId,
-      },
-      include: {
-        invoices: {
-          orderBy: { createdAt: "desc" },
-        },
       },
     });
 
@@ -35,8 +30,17 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       notFound();
     }
 
+    // جلب فواتير العميل
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        customerId: customer.id,
+        companyId: companyId,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
     // حساب الإحصائيات المالية للعميل
-    const activeInvoices = customer.invoices.filter((inv) => inv.status !== "VOIDED");
+    const activeInvoices = invoices.filter((inv) => inv.status !== "VOIDED");
     const totalPurchases = activeInvoices.reduce((acc, inv) => acc + Number(inv.total), 0);
     const totalPaid = activeInvoices.reduce((acc, inv) => acc + Number(inv.paidAmount), 0);
     const totalBalance = activeInvoices.reduce((acc, inv) => acc + Number(inv.balanceDue), 0);
@@ -121,14 +125,14 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {customer.invoices.length === 0 ? (
+                  {invoices.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="p-8 text-center text-gray-400">
                         لا توجد فواتير مسجلة لهذا العميل
                       </td>
                     </tr>
                   ) : (
-                    customer.invoices.map((invoice) => {
+                    invoices.map((invoice) => {
                       const isVoided = invoice.status === "VOIDED";
                       return (
                         <tr key={invoice.id} className="hover:bg-gray-50">
