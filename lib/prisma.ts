@@ -1,9 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "./prisma";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+export async function getMembership(userId: string) {
+  const membership = await prisma.membership.findFirst({ where: { userId } });
+  if (!membership) {
+    throw new Error("This user does not belong to any company.");
+  }
+  return membership;
+}
