@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import InvoiceForm from "./invoice-form";
+import Sidebar from "@/components/sidebar";
 
 export const dynamic = "force-dynamic";
 
