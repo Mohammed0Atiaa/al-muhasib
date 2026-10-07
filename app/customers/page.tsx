@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import Sidebar from "@/components/sidebar";
-import { Users, Plus, Phone, FileText } from "lucide-react";
+import { Users, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -13,31 +13,46 @@ export default async function CustomersPage() {
     const membership = await getMembership(user.id);
     const companyId = membership.companyId;
 
-    // جلب العملاء مع فواتيرهم وحساب الإجماليات
+    // 1. جلب العملاء
     const customers = await prisma.customer.findMany({
       where: { companyId },
-      include: {
-        invoices: {
-          select: {
-            total: true,
-            paidAmount: true,
-            balanceDue: true,
-            status: true,
-          },
-        },
-      },
       orderBy: { createdAt: "desc" },
     });
 
+    // 2. جلب جميع فواتير الشركة
+    const allInvoices = await prisma.invoice.findMany({
+      where: { companyId },
+      select: {
+        customerId: true,
+        total: true,
+        paidAmount: true,
+        balanceDue: true,
+        status: true,
+      },
+    });
+
+    // 3. حساب إحصائيات كل عميل
     const customersWithTotals = customers.map((customer) => {
-      const activeInvoices = customer.invoices.filter((inv) => inv.status !== "VOIDED");
-      const totalPurchases = activeInvoices.reduce((acc, inv) => acc + Number(inv.total), 0);
-      const totalPaid = activeInvoices.reduce((acc, inv) => acc + Number(inv.paidAmount), 0);
-      const totalBalance = activeInvoices.reduce((acc, inv) => acc + Number(inv.balanceDue), 0);
+      const customerInvoices = allInvoices.filter(
+        (inv) => inv.customerId === customer.id && inv.status !== "VOIDED"
+      );
+
+      const totalPurchases = customerInvoices.reduce(
+        (acc, inv) => acc + Number(inv.total),
+        0
+      );
+      const totalPaid = customerInvoices.reduce(
+        (acc, inv) => acc + Number(inv.paidAmount),
+        0
+      );
+      const totalBalance = customerInvoices.reduce(
+        (acc, inv) => acc + Number(inv.balanceDue),
+        0
+      );
 
       return {
         ...customer,
-        invoicesCount: activeInvoices.length,
+        invoicesCount: customerInvoices.length,
         totalPurchases,
         totalPaid,
         totalBalance,
