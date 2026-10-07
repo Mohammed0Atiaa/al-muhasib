@@ -25,8 +25,10 @@ export default async function SalesPage() {
   const money = (v: unknown) =>
     Number(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 3 });
 
-  return (
-    <div className="mx-auto max-w-4xl p-4" dir="rtl">
+  return (<div className="min-h-screen bg-gray-50">
+  <Sidebar currentPath="/sales" />
+  <main className="ml-64 p-4" dir="rtl">
+
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">فواتير المبيعات</h1>
         <Link href="/sales/new" className="rounded-lg bg-purple-600 px-4 py-2 text-white">
@@ -68,6 +70,8 @@ export default async function SalesPage() {
           </tbody>
         </table>
       </div>
-    </div>
+      </main>
+</div>
+
   );
 }
