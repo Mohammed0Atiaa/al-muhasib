@@ -117,15 +117,23 @@ model Account {
 }
 
 model Customer {
-  id        String   @id @default(cuid())
-  companyId String
-  name      String
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  company   Company  @relation(fields: [companyId], references: [id])
+  id            String    @id @default(cuid())
+  companyId     String
+  name          String
+  phone         String?
+  phone2        String?   // رقم الهاتف الثاني
+  email         String?   // البريد الإلكتروني
+  address       String?   // العنوان بالتفصيل
+  notes         String?   // ملاحظات أو بيان خاص
+  isBlacklisted Boolean   @default(false) // حالة الحظر
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  company       Company   @relation(fields: [companyId], references: [id])
+  invoices      Invoice[] // الربط مع الفواتير
 
   @@index([companyId, name])
+}
+
 }
 
 model WarehouseStock {
@@ -157,6 +165,8 @@ model Invoice {
   branchId        String
   warehouseId     String
   customerId      String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
   number          String
   status          String    @default("POSTED")
   currency        String
