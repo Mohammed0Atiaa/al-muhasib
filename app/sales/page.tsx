@@ -22,6 +22,15 @@ export default async function SalesPage() {
     where: { id: { in: customerIds } },
   });
   const names = new Map(customers.map((c) => [c.id, c.name]));
+  const allocs = await prisma.receiptAllocation.groupBy({
+  by: ["invoiceId"],
+  where: {
+    invoiceId: { in: invoices.map((i) => i.id) },
+    receipt: { status: "POSTED" },
+  },
+  _sum: { amount: true },
+});
+const collected = new Map(allocs.map((a) => [a.invoiceId, Number(a._sum.amount ?? 0)]));
   const money = (v: unknown) =>
     Number(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 3 });
 
