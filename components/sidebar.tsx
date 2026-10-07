@@ -13,13 +13,14 @@ export default function Sidebar({
   currentPath = "/dashboard",
 }: {
   currentPath: string;
-}) {
-  const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
-    { name: "Inventory", href: "/inventory", icon: Package },
-    { name: "Add Product", href: "/add-product", icon: Plus },
-    { name: "Settings", href: "/settings", icon: Settings },
-  ];
+}) {const navigation = [
+  { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+  { name: "Inventory", href: "/inventory", icon: Package },
+  { name: "Add Product", href: "/add-product", icon: Plus },
+  { name: "Sales", href: "/sales", icon: Receipt },
+  { name: "New Sale", href: "/sales/new", icon: ShoppingCart },
+  { name: "Settings", href: "/settings", icon: Settings },
+];
   return (
     <div className="fixed left-0 top-0 bg-gray-900 text-white w-64 min-h-screen p-6 z-10">
       <div className="mb-8">
