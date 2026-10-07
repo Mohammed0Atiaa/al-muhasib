@@ -1,57 +1,64 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getMembership } from "@/lib/company";
 import { prisma } from "@/lib/prisma";
+import { getMembership } from "@/lib/company";
 
-// 1. البحث عن عميل برقم الهاتف
-export async function GET(req: Request) {
+// 1. تعديل بيانات العميل أو تغيير حالة الحظر
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const user = await getCurrentUser();
     const membership = await getMembership(user.id);
-    const companyId = membership.companyId;
+    const body = await request.json();
 
-    const { searchParams } = new URL(req.url);
-    const phone = searchParams.get("phone");
-
-    if (!phone) {
-      return NextResponse.json({ customer: null });
-    }
-
-    const customer = await prisma.customer.findFirst({
+    const updatedCustomer = await prisma.customer.updateMany({
       where: {
-        companyId,
-        phone: phone.trim(),
+        id: params.id,
+        companyId: membership.companyId,
+      },
+      data: {
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.phone !== undefined && { phone: body.phone }),
+        ...(body.phone2 !== undefined && { phone2: body.phone2 }),
+        ...(body.email !== undefined && { email: body.email }),
+        ...(body.address !== undefined && { address: body.address }),
+        ...(body.notes !== undefined && { notes: body.notes }),
+        ...(body.isBlacklisted !== undefined && { isBlacklisted: body.isBlacklisted }),
       },
     });
 
-    return NextResponse.json({ customer });
+    return NextResponse.json({ success: true, updatedCustomer });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// 2. إنشاء عميل جديد سريع
-export async function POST(req: Request) {
+// 2. حذف العميل مع الحفاظ على الفواتير
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
     const user = await getCurrentUser();
     const membership = await getMembership(user.id);
-    const companyId = membership.companyId;
 
-    const { name, phone } = await req.json();
+    // فك ربط الفواتير المترابطة مع العميل أولاً لضمان عدم تلف السجلات المالية
+    await prisma.invoice.updateMany({
+      where: { customerId: params.id },
+      data: { customerId: null },
+    });
 
-    if (!name) {
-      return NextResponse.json({ error: "اسم العميل مطلوب" }, { status: 400 });
-    }
-
-    const customer = await prisma.customer.create({
-      data: {
-        companyId,
-        name: name.trim(),
-        phone: phone ? phone.trim() : null,
+    // حذف العميل
+    await prisma.customer.deleteMany({
+      where: {
+        id: params.id,
+        companyId: membership.companyId,
       },
     });
 
-    return NextResponse.json({ customer });
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
