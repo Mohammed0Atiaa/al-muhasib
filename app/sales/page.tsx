@@ -1,4 +1,4 @@
-import Link from "next/link";
+فقهimport Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
@@ -20,19 +20,23 @@ export default async function SalesPage() {
   ];
   const customers = await prisma.customer.findMany({
     where: { id: { in: customerIds } },
-  });
-  const names = new Map(customers.map((c) => [c.id, c.name]));
-  const allocs = await prisma.receiptAllocation.groupBy({
-  by: ["invoiceId"],
+  });const allocs = await prisma.receiptAllocation.findMany({
   where: {
     invoiceId: { in: invoices.map((i) => i.id) },
     receipt: { status: "POSTED" },
   },
-  _sum: { amount: true },
+  select: {
+    invoiceId: true,
+    amount: true,
+  },
 });
-const collected = new Map(allocs.map((a) => [a.invoiceId, Number(a._sum.amount ?? 0)]));
-  const money = (v: unknown) =>
-    Number(v).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+
+const collected = new Map<string, number>();
+allocs.forEach((a) => {
+  const current = collected.get(a.invoiceId) || 0;
+  collected.set(a.invoiceId, current + Number(a.amount));
+});
+
 
   return (<div className="min-h-screen bg-gray-50">
   <Sidebar currentPath="/sales" />
