@@ -6,6 +6,7 @@ import {
   Receipt,
   Settings,
   ShoppingCart,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -13,14 +14,17 @@ export default function Sidebar({
   currentPath = "/dashboard",
 }: {
   currentPath: string;
-}) {const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Add Product", href: "/add-product", icon: Plus },
-  { name: "Sales", href: "/sales", icon: Receipt },
-  { name: "New Sale", href: "/sales/new", icon: ShoppingCart },
-  { name: "Settings", href: "/settings", icon: Settings },
-];
+}) {
+  const navigation = [
+    { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+    { name: "Inventory", href: "/inventory", icon: Package },
+    { name: "Add Product", href: "/add-product", icon: Plus },
+    { name: "Sales", href: "/sales", icon: Receipt },
+    { name: "New Sale", href: "/sales/new", icon: ShoppingCart },
+    { name: "Customers", href: "/customers", icon: Users },
+    { name: "Settings", href: "/settings", icon: Settings },
+  ];
+
   return (
     <div className="fixed left-0 top-0 bg-gray-900 text-white w-64 min-h-screen p-6 z-10">
       <div className="mb-8">
@@ -32,7 +36,7 @@ export default function Sidebar({
 
       <nav className="space-y-1">
         <div className="text-sm font-semibold text-gray-400 uppercase">
-          Iventory
+          Inventory
         </div>
         {navigation.map((item, key) => {
           const IconComponent = item.icon;
@@ -54,7 +58,7 @@ export default function Sidebar({
         })}
       </nav>
 
-      <div className="absolute bottom-0 left-0 right-0 p-6 borter-t border-gray-700">
+      <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-700">
         <div className="flex items-center justify-between">
           <UserButton showUserInfo />
         </div>
