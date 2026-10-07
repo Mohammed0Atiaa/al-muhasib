@@ -78,15 +78,24 @@ export async function DELETE(
       );
     }
 
-    // فك ربط الفواتير المباشرة قبل الحذف لمنع الأخطاء المالية
-    await prisma.invoice.updateMany({
+  
+        // التحقق من وجود فواتير مرتبطة بالعميل لمنع الحذف
+    const invoiceCount = await prisma.invoice.count({
       where: { customerId: customerId },
-      data: { customerId: null },
     });
 
+    if (invoiceCount > 0) {
+      return NextResponse.json(
+        { error: "لا يمكن حذف عميل له فواتير أو حركات مالية مسجلة. يمكنك حظره بدلاً من ذلك." },
+        { status: 400 }
+      );
+    }
+
+    // حذف العميل إذا لم تكن له أي فواتير
     await prisma.customer.delete({
       where: { id: customerId },
     });
+
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
