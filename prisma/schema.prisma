@@ -193,6 +193,40 @@ model Invoice {
   @@index([customerId])
 }
 
+model ReceiptVoucher {
+  id              String    @id @default(cuid())
+  companyId       String
+  branchId        String
+  customerId      String
+  number          String
+  status          String    @default("POSTED")
+  method          String
+  currency        String
+  exchangeRate    Decimal   @default(1) @db.Decimal(18, 8)
+  amount          Decimal   @db.Decimal(18, 3)
+  notes           String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  voidedAt        DateTime?
+  voidedByUserId  String?
+  voidReason      String?
+
+  allocations ReceiptAllocation[]
+
+  @@unique([companyId, number])
+  @@index([companyId, customerId])
+}
+
+model ReceiptAllocation {
+  id        String         @id @default(cuid())
+  receiptId String
+  invoiceId String
+  amount    Decimal        @db.Decimal(18, 3)
+  receipt   ReceiptVoucher @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId])
+  @@index([invoiceId])
+}
 model InvoiceItem {
   id            String  @id @default(cuid())
   invoiceId     String
