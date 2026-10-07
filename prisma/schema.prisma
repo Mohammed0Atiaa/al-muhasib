@@ -134,7 +134,6 @@ model Customer {
   @@index([companyId, name])
 }
 
-}
 
 model WarehouseStock {
   id          String    @id @default(cuid())
