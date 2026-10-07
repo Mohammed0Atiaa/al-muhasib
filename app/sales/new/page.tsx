@@ -43,7 +43,9 @@ export default async function NewSalePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-4">
+    <div className="min-h-screen bg-gray-50">
+  <Sidebar currentPath="/sales" />
+  <main className="ml-64 p-4" dir="rtl">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">فاتورة مبيعات جديدة</h1>
         <Link href="/sales" className="text-sm text-purple-600">
@@ -72,6 +74,7 @@ export default async function NewSalePage() {
           stocks: Object.fromEntries(p.stocks.map((s) => [s.warehouseId, s.quantity])),
         }))}
       />
-    </div>
+    </main>
+</div>
   );
 }
