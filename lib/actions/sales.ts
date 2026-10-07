@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getCurrentUser } from "../auth";
 import { prisma } from "../prisma";
 import { getMembership } from "../company";
+import Sidebar from "@/components/sidebar";
 
 class UserError extends Error {}
 
