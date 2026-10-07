@@ -164,7 +164,8 @@ model Invoice {
   branchId        String
   warehouseId     String
   customerId      String?
-  customer   Customer? @relation(fields: [customerId], references: [id])
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
 
   number          String
   status          String    @default("POSTED")
