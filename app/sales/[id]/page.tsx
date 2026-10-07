@@ -17,7 +17,7 @@ export default async function SaleDetailPage({ params }: PageProps) {
     const membership = await getMembership(user.id);
     const companyId = membership.companyId;
 
-    // جلب تفاصيل الفاتورة مع العلاقات
+    // جلب تفاصيل الفاتورة مع بنودها ودفعاتها
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: params.id,
@@ -28,12 +28,19 @@ export default async function SaleDetailPage({ params }: PageProps) {
         payments: {
           orderBy: { paidAt: "desc" },
         },
-        customer: true,
       },
     });
 
     if (!invoice) {
       notFound();
+    }
+
+    // جلب بيانات العميل إذا كان محدداً
+    let customer = null;
+    if (invoice.customerId) {
+      customer = await prisma.customer.findUnique({
+        where: { id: invoice.customerId },
+      });
     }
 
     // جلب بيانات الفرع والمخزن
@@ -62,14 +69,14 @@ export default async function SaleDetailPage({ params }: PageProps) {
                   className={`px-3 py-1 text-xs font-semibold rounded-full ${
                     isVoided
                       ? "bg-red-100 text-red-700"
-                      : invoice.balanceDue > 0
+                      : Number(invoice.balanceDue) > 0
                       ? "bg-amber-100 text-amber-700"
                       : "bg-green-100 text-green-700"
                   }`}
                 >
                   {isVoided
                     ? "ملغاة"
-                    : invoice.balanceDue > 0
+                    : Number(invoice.balanceDue) > 0
                     ? "متبقي آجل"
                     : "مسددة بالكامل"}
                 </span>
@@ -106,11 +113,11 @@ export default async function SaleDetailPage({ params }: PageProps) {
                 بيانات العميل
               </h3>
               <p className="font-bold text-gray-800">
-                {invoice.customer?.name || "عميل نقدي"}
+                {customer?.name || "عميل نقدي"}
               </p>
-              {invoice.customer?.phone && (
+              {customer?.phone && (
                 <p className="text-sm text-gray-600 dir-ltr text-right mt-1">
-                  {invoice.customer.phone}
+                  {customer.phone}
                 </p>
               )}
             </div>
