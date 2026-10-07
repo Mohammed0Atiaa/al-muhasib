@@ -3,62 +3,59 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 
-// 1. تعديل بيانات العميل أو تغيير حالة الحظر
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+// 1. جلب قائمة العملاء أو عميل محدد برقم ID
+export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
     const membership = await getMembership(user.id);
-    const body = await request.json();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
 
-    const updatedCustomer = await prisma.customer.updateMany({
-      where: {
-        id: params.id,
-        companyId: membership.companyId,
-      },
-      data: {
-        ...(body.name !== undefined && { name: body.name }),
-        ...(body.phone !== undefined && { phone: body.phone }),
-        ...(body.phone2 !== undefined && { phone2: body.phone2 }),
-        ...(body.email !== undefined && { email: body.email }),
-        ...(body.address !== undefined && { address: body.address }),
-        ...(body.notes !== undefined && { notes: body.notes }),
-        ...(body.isBlacklisted !== undefined && { isBlacklisted: body.isBlacklisted }),
-      },
+    if (id) {
+      const customer = await prisma.customer.findFirst({
+        where: { id, companyId: membership.companyId },
+      });
+      return NextResponse.json({ customer });
+    }
+
+    const customers = await prisma.customer.findMany({
+      where: { companyId: membership.companyId },
+      orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ success: true, updatedCustomer });
+    return NextResponse.json({ customers });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// 2. حذف العميل مع الحفاظ على الفواتير
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+// 2. إنشاء عميل جديد
+export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
     const membership = await getMembership(user.id);
+    const body = await request.json();
 
-    // فك ربط الفواتير المترابطة مع العميل أولاً لضمان عدم تلف السجلات المالية
-    await prisma.invoice.updateMany({
-      where: { customerId: params.id },
-      data: { customerId: null },
-    });
+    if (!body.name || !body.name.trim()) {
+      return NextResponse.json(
+        { error: "اسم العميل مطلوب" },
+        { status: 400 }
+      );
+    }
 
-    // حذف العميل
-    await prisma.customer.deleteMany({
-      where: {
-        id: params.id,
+    const newCustomer = await prisma.customer.create({
+      data: {
         companyId: membership.companyId,
+        name: body.name.trim(),
+        phone: body.phone || null,
+        phone2: body.phone2 || null,
+        email: body.email || null,
+        address: body.address || null,
+        notes: body.notes || null,
       },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, customer: newCustomer });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
