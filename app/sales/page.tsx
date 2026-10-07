@@ -51,7 +51,12 @@ export default async function SalesPage() {
           <tbody>
             {invoices.map((i) => (
               <tr key={i.id} className="border-t">
-                <td className="p-2">{i.number}</td>
+               <td className="p-2 font-medium text-blue-600 hover:underline">
+  <Link href={`/sales/${i.id}`}>
+    {i.number}
+  </Link>
+</td>
+
                 <td className="p-2">{i.createdAt.toISOString().slice(0, 10)}</td>
                 <td className="p-2">{i.customerId ? names.get(i.customerId) ?? "-" : "نقدي"}</td>
                 <td className="p-2">{money(i.total)} {i.currency}</td>
