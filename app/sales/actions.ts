@@ -9,7 +9,7 @@ export async function voidInvoice(invoiceId: string, reason: string) {
     const user = await getCurrentUser();
     if (!user) throw new Error("غير مصرح بالدخول");
 
-    // جلب الفاتورة مع بنودها
+    // جلب الفاتورة مع بنودها ومعرفة المخزن المرتبط بها
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { items: true },
@@ -25,45 +25,34 @@ export async function voidInvoice(invoiceId: string, reason: string) {
       timeStyle: "short",
     });
 
-    const noteText = `[تم إلغاء الفاتورة بواسطة: ${voidedByName} بتاريخ ${voidedAtFormatted} - السبب: ${reason}]`;
+    const voidDetails = `[إلغاء كامل] السبب: ${reason} | بواسطة: ${voidedByName} | الوقت: ${voidedAtFormatted}`;
 
-    // تنفيذ الإلغاء وتحديث المخزون
+    // تنفيذ العملية في Transaction لضمان ترابط البيانات
     await prisma.$transaction(async (tx) => {
-      // 1. إرجاع الكميات للمخزن إن وُجدت أصناف
+      // 1. إعادة الكميات المباعة إلى المخزن الخاص بالفاتورة
       for (const item of invoice.items) {
-        if (item.productId) {
-          // محاولة تحديث المخزون
-          const stockRecord = await tx.stock.findFirst({
-            where: { productId: item.productId },
+        if (item.productId && invoice.warehouseId) {
+          await tx.stock.updateMany({
+            where: {
+              productId: item.productId,
+              warehouseId: invoice.warehouseId,
+            },
+            data: {
+              quantity: { increment: item.quantity },
+            },
           });
-
-          if (stockRecord) {
-            await tx.stock.update({
-              where: { id: stockRecord.id },
-              data: { quantity: { increment: item.quantity } },
-            });
-          }
         }
       }
 
-      // 2. تحديث الفاتورة كـ ملغاة وتحديث المبالغ المتبقية
-      const updateData: any = {
-        status: "VOIDED",
-        paidAmount: 0,
-        balanceDue: 0,
-      };
-
-      // إضافة الملاحظة بالحقل المتوفر
-      if ("notes" in invoice) {
-        updateData.notes = invoice.notes ? `${invoice.notes}\n${noteText}` : noteText;
-      }
-      if ("voidReason" in invoice) {
-        updateData.voidReason = noteText;
-      }
-
+      // 2. تحديث الفاتورة إلى ملغاة وتصفير الأرصدة المالية
       await tx.invoice.update({
         where: { id: invoiceId },
-        data: updateData,
+        data: {
+          status: "VOIDED",
+          voidReason: voidDetails,
+          paidAmount: 0,
+          balanceDue: 0,
+        },
       });
     });
 
@@ -71,7 +60,7 @@ export async function voidInvoice(invoiceId: string, reason: string) {
     revalidatePath("/sales");
     return { success: true };
   } catch (error: any) {
-    console.error("Void Invoice Error:", error);
+    console.error("Void Error:", error);
     throw new Error(error.message || "حدث خطأ أثناء إلغاء الفاتورة");
   }
 }
