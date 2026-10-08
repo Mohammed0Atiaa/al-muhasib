@@ -48,15 +48,27 @@ export default async function SalesPage() {
 
   return (
     <main dir="rtl">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200">
         <h1 className="text-2xl font-bold text-gray-900">فواتير المبيعات</h1>
-        <Link
-          href="/sales/new"
-          className="rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 transition"
-        >
-          فاتورة جديدة
-        </Link>
+        
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition"
+          >
+            <span>🏠</span>
+            <span>الرئيسية</span>
+          </Link>
+          <Link
+            href="/sales/new"
+            className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg shadow-sm hover:bg-purple-700 transition"
+          >
+            <span>➕</span>
+            <span>فاتورة جديدة</span>
+          </Link>
+        </div>
       </div>
+
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="w-full text-sm text-right">
           <thead className="bg-gray-50 text-gray-500 border-b">
