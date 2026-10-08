@@ -3,8 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import Sidebar from "@/components/sidebar";
-import { Users, UserPlus } from "lucide-react";
 import CustomerActions from "./customer-actions";
+import { Users, UserPlus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -19,44 +19,12 @@ export default async function CustomersPage() {
       orderBy: { createdAt: "desc" },
     });
 
-    const allInvoices = await prisma.invoice.findMany({
-      where: { companyId },
-      select: {
-        customerId: true,
-        total: true,
-        paidAmount: true,
-        balanceDue: true,
-        status: true,
-      },
-    });
-
-    const customersWithTotals = customers.map((customer) => {
-      const customerInvoices = allInvoices.filter(
-        (inv) => inv.customerId === customer.id && inv.status !== "VOIDED"
-      );
-
-      const totalPurchases = customerInvoices.reduce((acc, inv) => acc + Number(inv.total), 0);
-      const totalPaid = customerInvoices.reduce((acc, inv) => acc + Number(inv.paidAmount), 0);
-      const totalBalance = customerInvoices.reduce((acc, inv) => acc + Number(inv.balanceDue), 0);
-
-      return {
-        ...customer,
-        invoicesCount: customerInvoices.length,
-        totalPurchases,
-        totalPaid,
-        totalBalance,
-      };
-    });
-
-     return (
+    return (
       <div className="min-h-screen bg-gray-50 flex flex-col" dir="rtl">
         <Sidebar currentPath="/customers" />
 
-        {/* استخدام mr-0 للشاشات الصغيرة لتجنب الاختفاء، و md:mr-64 للشاشات الكبيرة */}
         <div className="flex-1 mr-0 md:mr-64 flex flex-col min-w-0 transition-all duration-200">
-          <main className="p-4 md:p-8 max-w-7xl w-full mx-auto">
-            {/* بقية محتوى الصفحة كما هو */}
-
+          <main className="p-4 md:p-8 max-w-4xl w-full mx-auto">
             {/* رأس الصفحة */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <div>
@@ -65,7 +33,7 @@ export default async function CustomersPage() {
                   إدارة العملاء
                 </h1>
                 <p className="text-xs text-gray-500 mt-1">
-                  عرض وإدارة بيانات العملاء والحسابات والديون والاطلاع على المديونيات
+                  عرض وإدارة قائمة العملاء وسرعة الوصول لحساباتهم
                 </p>
               </div>
               <Link
@@ -77,57 +45,40 @@ export default async function CustomersPage() {
               </Link>
             </div>
 
-            {/* جدول البيانات */}
+            {/* جدول مبسط ومختصر (الاسم، الهاتف، الإجراءات فقط) */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto w-full">
-                <table className="w-full text-sm text-right whitespace-nowrap min-w-[800px]">
+                <table className="w-full text-sm text-right">
                   <thead className="bg-gray-50 text-gray-600 border-b text-xs">
                     <tr>
                       <th className="py-3 px-4 font-semibold">اسم العميل</th>
-                      <th className="py-3 px-4 font-semibold">الهاتف</th>
-                      <th className="py-3 px-4 font-semibold">المشتريات</th>
-                      <th className="py-3 px-4 font-semibold">المسدد</th>
-                      <th className="py-3 px-4 font-semibold">المتبقي</th>
-                      <th className="py-3 px-4 font-semibold">الحالة</th>
+                      <th className="py-3 px-4 font-semibold">رقم الموبايل</th>
                       <th className="py-3 px-4 font-semibold text-center">الإجراءات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-xs">
-                    {customersWithTotals.length === 0 ? (
+                    {customers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-gray-400">
+                        <td colSpan={3} className="py-8 text-center text-gray-400">
                           لا يوجد عملاء مضافين حالياً
                         </td>
                       </tr>
                     ) : (
-                      customersWithTotals.map((c: any) => (
+                      customers.map((c: any) => (
                         <tr key={c.id} className={`hover:bg-gray-50/80 ${c.isBlacklisted ? "bg-red-50/40" : ""}`}>
                           <td className="py-3 px-4">
-                            <div className="font-bold text-gray-900 text-sm">{c.name}</div>
+                            <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                              {c.name}
+                              {c.isBlacklisted && (
+                                <span className="px-1.5 py-0.5 text-[9px] bg-red-600 text-white font-bold rounded">
+                                  محظور
+                                </span>
+                              )}
+                            </div>
                             <div className="text-[10px] text-gray-400">ID: {c.id.slice(-6)}</div>
                           </td>
-                          <td className="py-3 px-4 text-gray-600 font-mono text-left" dir="ltr">{c.phone || "-"}</td>
-                          <td className="py-3 px-4 font-medium text-gray-800">{c.totalPurchases.toFixed(3)} KWD</td>
-                          <td className="py-3 px-4 font-medium text-green-600">{c.totalPaid.toFixed(3)} KWD</td>
-                          <td className="py-3 px-4 font-medium">
-                            <span
-                              className={`px-2 py-0.5 rounded text-xs ${
-                                c.totalBalance > 0 ? "bg-red-100 text-red-700 font-bold" : "text-gray-500 bg-gray-100"
-                              }`}
-                            >
-                              {c.totalBalance.toFixed(3)} KWD
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            {c.isBlacklisted ? (
-                              <span className="px-2 py-0.5 text-[10px] bg-red-600 text-white font-bold rounded">
-                                محظور
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 text-[10px] bg-green-100 text-green-700 font-semibold rounded">
-                                نشط
-                              </span>
-                            )}
+                          <td className="py-3 px-4 text-gray-600 font-mono text-left" dir="ltr">
+                            {c.phone || "-"}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <CustomerActions customer={c} />
