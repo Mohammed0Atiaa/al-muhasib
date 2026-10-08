@@ -2,7 +2,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import ReceiptForm from "./receipt-form";
-import Sidebar from "@/components/sidebar";
 
 export const dynamic = "force-dynamic";
 
@@ -68,19 +67,16 @@ export default async function NewReceiptPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
-      <Sidebar currentPath="/customers/receipts/new" />
-      <main className="ml-64 p-4">
-        <div className="mx-auto max-w-xl">
-          <h1 className="mb-4 text-2xl font-bold">سند قبض جديد</h1>
-          <ReceiptForm
-            branches={branches.map((b) => ({ id: b.id, name: b.name }))}
-            customers={customers.map((c) => ({ id: c.id, name: c.name }))}
-            invoices={invoices}
-            decimals={Object.fromEntries(currencies.map((c) => [c.code, c.decimals]))}
-          />
-        </div>
-      </main>
-    </div>
+    <main dir="rtl">
+      <div className="mx-auto max-w-xl">
+        <h1 className="mb-4 text-2xl font-bold text-gray-900">سند قبض جديد</h1>
+        <ReceiptForm
+          branches={branches.map((b) => ({ id: b.id, name: b.name }))}
+          customers={customers.map((c) => ({ id: c.id, name: c.name }))}
+          invoices={invoices}
+          decimals={Object.fromEntries(currencies.map((c) => [c.code, c.decimals]))}
+        />
+      </div>
+    </main>
   );
 }
