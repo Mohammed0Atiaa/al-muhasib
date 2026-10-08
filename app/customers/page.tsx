@@ -48,12 +48,15 @@ export default async function CustomersPage() {
       };
     });
 
-    return (
+     return (
       <div className="min-h-screen bg-gray-50 flex flex-col" dir="rtl">
         <Sidebar currentPath="/customers" />
 
-        <div className="flex-1 md:mr-64 flex flex-col min-w-0">
+        {/* استخدام mr-0 للشاشات الصغيرة لتجنب الاختفاء، و md:mr-64 للشاشات الكبيرة */}
+        <div className="flex-1 mr-0 md:mr-64 flex flex-col min-w-0 transition-all duration-200">
           <main className="p-4 md:p-8 max-w-7xl w-full mx-auto">
+            {/* بقية محتوى الصفحة كما هو */}
+
             {/* رأس الصفحة */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <div>
