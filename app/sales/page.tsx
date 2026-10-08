@@ -1,125 +1,142 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getMembership } from "@/lib/company";
 
 export const dynamic = "force-dynamic";
 
-export default async function SalesPage() {
-  const user = await getCurrentUser();
-  const { companyId } = await getMembership(user.id);
+interface SalesPageProps {
+  searchParams: { q?: string };
+}
 
+export default async function SalesListPage({ searchParams }: SalesPageProps) {
+  const query = searchParams.q?.trim() || "";
+
+  // البحث في الفواتير برقم الفاتورة أو بيانات العميل (اسم/هاتف)
   const invoices = await prisma.invoice.findMany({
-    where: { companyId },
+    where: query
+      ? {
+          OR: [
+            { number: { contains: query, mode: "insensitive" } },
+            {
+              customer: {
+                OR: [
+                  { name: { contains: query, mode: "insensitive" } },
+                  { phone: { contains: query, mode: "insensitive" } },
+                ],
+              },
+            },
+          ],
+        }
+      : undefined,
+    include: {
+      customer: true,
+    },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
 
-  const customerIds = [
-    ...new Set(invoices.map((i) => i.customerId).filter((x): x is string => !!x)),
-  ];
-  const customers = await prisma.customer.findMany({
-    where: { id: { in: customerIds } },
-  });
-  const names = new Map(customers.map((c) => [c.id, c.name]));
-
-  const allocs = await prisma.receiptAllocation.findMany({
-    where: {
-      invoiceId: { in: invoices.map((i) => i.id) },
-      receipt: { status: "POSTED" },
-    },
-    select: {
-      invoiceId: true,
-      amount: true,
-    },
-  });
-
-  const collected = new Map<string, number>();
-  allocs.forEach((a) => {
-    const current = collected.get(a.invoiceId) || 0;
-    collected.set(a.invoiceId, current + Number(a.amount));
-  });
-
-  const money = (v: unknown) =>
-    Number(v).toLocaleString("en", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 3,
-    });
-
   return (
-    <main dir="rtl">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200">
-        <h1 className="text-2xl font-bold text-gray-900">فواتير المبيعات</h1>
-        
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition"
-          >
-            <span>🏠</span>
-            <span>الرئيسية</span>
-          </Link>
-          <Link
-            href="/sales/new"
-            className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg shadow-sm hover:bg-purple-700 transition"
-          >
-            <span>➕</span>
-            <span>فاتورة جديدة</span>
-          </Link>
+    <div className="p-6 max-w-7xl mx-auto" dir="rtl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">سجل الفواتير والمبيعات</h1>
+          <p className="text-sm text-gray-500 mt-1">البحث عن الفواتير وإدارتها أو إلغاؤها</p>
         </div>
+
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition"
+        >
+          <span>🏠</span>
+          <span>الرئيسية</span>
+        </Link>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* حقل البحث برقم الفاتورة أو رقم الهاتف */}
+      <form method="GET" className="mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex gap-3">
+        <input
+          type="text"
+          name="q"
+          defaultValue={query}
+          placeholder="ابحث برقم الفاتورة، اسم العميل، أو رقم الهاتف..."
+          className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+        />
+        <button
+          type="submit"
+          className="px-5 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition"
+        >
+          بحث
+        </button>
+        {query && (
+          <Link
+            href="/sales"
+            className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition flex items-center"
+          >
+            إلغاء البحث
+          </Link>
+        )}
+      </form>
+
+      {/* جدول الفواتير */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <table className="w-full text-sm text-right">
-          <thead className="bg-gray-50 text-gray-500 border-b">
+          <thead className="bg-gray-50 text-gray-600 border-b">
             <tr>
-              <th className="p-3">الرقم</th>
-              <th className="p-3">التاريخ</th>
-              <th className="p-3">العميل</th>
-              <th className="p-3">الإجمالي</th>
-              <th className="p-3">المدفوع</th>
-              <th className="p-3">الآجل</th>
-              <th className="p-3">الحالة</th>
+              <th className="p-3.5">رقم الفاتورة</th>
+              <th className="p-3.5">العميل</th>
+              <th className="p-3.5">رقم الهاتف</th>
+              <th className="p-3.5">التاريخ</th>
+              <th className="p-3.5">الحالة</th>
+              <th className="p-3.5">الإجمالي</th>
+              <th className="p-3.5 text-center">الإجراء</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {invoices.map((i) => (
-              <tr key={i.id} className="hover:bg-gray-50">
-                <td className="p-3 font-medium text-blue-600 hover:underline">
-                  <Link href={`/sales/${i.id}`}>{i.number}</Link>
-                </td>
-                <td className="p-3 text-gray-600">{i.createdAt.toISOString().slice(0, 10)}</td>
-                <td className="p-3 font-medium text-gray-900">
-                  {i.customerId ? names.get(i.customerId) ?? "-" : "نقدي"}
-                </td>
-                <td className="p-3 font-semibold">
-                  {money(i.total)} {i.currency}
-                </td>
-                <td className="p-3 text-green-600 font-medium">
-                  {money(Number(i.paidAmount) + (collected.get(i.id) ?? 0))}
-                </td>
-                <td className="p-3 text-amber-600 font-medium">
-                  {money(
-                    Math.max(Number(i.balanceDue) - (collected.get(i.id) ?? 0), 0)
-                  )}
-                </td>
-                <td className="p-3">
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${i.status === 'POSTED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                    {i.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {invoices.length === 0 && (
+            {invoices.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-gray-500">
-                  لا توجد فواتير بعد
+                <td colSpan={7} className="p-8 text-center text-gray-500">
+                  لا توجد فواتير مطابقة للبحث.
                 </td>
               </tr>
+            ) : (
+              invoices.map((inv) => {
+                const isVoid = inv.status === "VOIDED";
+                return (
+                  <tr key={inv.id} className="hover:bg-gray-50">
+                    <td className="p-3.5 font-bold text-gray-900">{inv.number}</td>
+                    <td className="p-3.5">{inv.customer?.name || "عميل نقدي"}</td>
+                    <td className="p-3.5 dir-ltr text-right">{inv.customer?.phone || "-"}</td>
+                    <td className="p-3.5 text-gray-500">
+                      {new Date(inv.createdAt).toLocaleDateString("ar-KW")}
+                    </td>
+                    <td className="p-3.5">
+                      <span
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                          isVoid
+                            ? "bg-red-100 text-red-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {isVoid ? "ملغاة" : "نشطة"}
+                      </span>
+                    </td>
+                    <td className="p-3.5 font-semibold">
+                      {Number(inv.total).toFixed(3)} KWD
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <Link
+                        href={`/sales/${inv.id}`}
+                        className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 font-medium text-xs bg-purple-50 px-3 py-1.5 rounded-md border border-purple-100"
+                      >
+                        عرض التفاصيل والإلغاء 🔍
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
-    </main>
+    </div>
   );
 }
