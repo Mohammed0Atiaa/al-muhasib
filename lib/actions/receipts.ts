@@ -108,17 +108,22 @@ export async function createReceipt(input: unknown): Promise<Result> {
           open.map((i) => i.id)
         )}) FOR UPDATE`;
 
-        const done = await tx.receiptAllocation.groupBy({
-          by: ["invoiceId"],
+        // استخدام findMany بدلاً من groupBy لتجنب أخطاء تداخل الأعمدة
+        const allocationsData = await tx.receiptAllocation.findMany({
           where: {
             invoiceId: { in: open.map((i) => i.id) },
             receipt: { status: "POSTED" },
           },
-          _sum: { amount: true },
+          select: { invoiceId: true, amount: true },
         });
-        const doneMap = new Map(
-          done.map((d) => [d.invoiceId, d._sum.amount ?? D(0)])
-        );
+
+        const doneMap = new Map<string, Prisma.Decimal>();
+        for (const alloc of allocationsData) {
+          if (alloc.invoiceId) {
+            const current = doneMap.get(alloc.invoiceId) ?? D(0);
+            doneMap.set(alloc.invoiceId, current.add(alloc.amount));
+          }
+        }
 
         let left = amount;
         const allocs: { invoice: (typeof open)[number]; amount: Prisma.Decimal }[] = [];
@@ -138,7 +143,7 @@ export async function createReceipt(input: unknown): Promise<Result> {
         for (const a of allocs) {
           creditBase = creditBase.add(baseRound(a.amount.mul(a.invoice.exchangeRate)));
         }
-        const diff = debitBase.sub(creditBase); // + ربح صرف، - خسارة صرف
+        const diff = debitBase.sub(creditBase);
 
         const lines: {
           accountId: string;
@@ -163,7 +168,9 @@ export async function createReceipt(input: unknown): Promise<Result> {
           create: { companyId, branchId: data.branchId, docType: "RECEIPT", lastNumber: 1 },
           update: { lastNumber: { increment: 1 } },
         });
-        const number = `${branch.code}-R${String(counter.lastNumber).padStart(6, "0")}`;
+        
+        const branchPrefix = (branch as { code?: string }).code ?? "BR";
+        const number = `${branchPrefix}-R${String(counter.lastNumber).padStart(6, "0")}`;
 
         const receipt = await tx.receiptVoucher.create({
           data: {
