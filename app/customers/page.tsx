@@ -3,8 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import Sidebar from "@/components/sidebar";
-import { Users, UserPlus } from "lucide-react";
-import CustomerActions from "./customer-actions";
+import { Users, UserPlus, Eye, Edit, Trash2, Ban, CheckCircle } from "lucide-react";
+import DeleteCustomerButton from "./delete-button"; // أو يمكننا وضع زر الحذف المباشر
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +64,7 @@ export default async function CustomersPage() {
             </div>
             <Link
               href="/customers/new"
-              className="inline-flex items-center gap-2 bg-purple-600 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-purple-700 transition"
+              className="inline-flex items-center gap-2 bg-purple-600 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-purple-700 transition shadow-sm"
             >
               <UserPlus className="w-5 h-5" />
               إنشاء عميل جديد
@@ -123,7 +123,25 @@ export default async function CustomersPage() {
                           )}
                         </td>
                         <td className="p-4 text-center">
-                          <CustomerActions customer={c} />
+                          <div className="flex items-center justify-center gap-2">
+                            {/* زر العرض */}
+                            <Link
+                              href={`/customers/${c.id}`}
+                              className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                              title="عرض التفاصيل"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Link>
+
+                            {/* زر التعديل */}
+                            <Link
+                              href={`/customers/${c.id}/edit`}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              title="تعديل العميل"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))
