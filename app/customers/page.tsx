@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import Sidebar from "@/components/sidebar";
 import { Users, UserPlus, Eye, Edit } from "lucide-react";
+import CustomerActions from "./customer-actions";
 
 export const dynamic = "force-dynamic";
 
