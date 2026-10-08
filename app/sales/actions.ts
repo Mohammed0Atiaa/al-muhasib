@@ -1,50 +1,55 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function voidInvoice(invoiceId: string, reason: string) {
   try {
-    const user = await getCurrentUser();
-    if (!user) throw new Error("غير مصرح بالدخول");
+    if (!invoiceId) {
+      return { success: false, error: "معرف الفاتورة غير موجود" };
+    }
 
-    // جلب الفاتورة مع بنودها ومعرفة المخزن المرتبط بها
+    // جلب الفاتورة مع البنود
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { items: true },
     });
 
-    if (!invoice) throw new Error("الفاتورة غير موجودة");
-    if (invoice.status === "VOIDED") throw new Error("الفاتورة ملغاة بالفعل");
+    if (!invoice) {
+      return { success: false, error: "الفاتورة غير موجودة" };
+    }
 
-    const voidedByName = user.name || user.email || "مستخدم";
+    if (invoice.status === "VOIDED") {
+      return { success: false, error: "الفاتورة ملغاة بالفعل" };
+    }
+
     const voidedAtFormatted = new Date().toLocaleString("ar-KW", {
       timeZone: "Asia/Kuwait",
       dateStyle: "short",
       timeStyle: "short",
     });
 
-    const voidDetails = `[إلغاء كامل] السبب: ${reason} | بواسطة: ${voidedByName} | الوقت: ${voidedAtFormatted}`;
+    const voidDetails = `[إلغاء كامل] السبب: ${reason || "بدون سبب"} | الوقت: ${voidedAtFormatted}`;
 
-    // تنفيذ العملية في Transaction لضمان ترابط البيانات
+    // تنفيذ التعديلات داخل Transaction
     await prisma.$transaction(async (tx) => {
-      // 1. إعادة الكميات المباعة إلى المخزن الخاص بالفاتورة
+      // 1. إعادة الكميات إلى المخزن
       for (const item of invoice.items) {
-        if (item.productId && invoice.warehouseId) {
-          await tx.stock.updateMany({
-            where: {
-              productId: item.productId,
-              warehouseId: invoice.warehouseId,
-            },
-            data: {
-              quantity: { increment: item.quantity },
-            },
+        if (item.productId) {
+          const stockRecord = await tx.stock.findFirst({
+            where: { productId: item.productId },
           });
+
+          if (stockRecord) {
+            await tx.stock.update({
+              where: { id: stockRecord.id },
+              data: { quantity: { increment: item.quantity } },
+            });
+          }
         }
       }
 
-      // 2. تحديث الفاتورة إلى ملغاة وتصفير الأرصدة المالية
+      // 2. تحديث حالة الفاتورة وتصفير المبالغ
       await tx.invoice.update({
         where: { id: invoiceId },
         data: {
@@ -58,9 +63,13 @@ export async function voidInvoice(invoiceId: string, reason: string) {
 
     revalidatePath(`/sales/${invoiceId}`);
     revalidatePath("/sales");
+
     return { success: true };
   } catch (error: any) {
-    console.error("Void Error:", error);
-    throw new Error(error.message || "حدث خطأ أثناء إلغاء الفاتورة");
+    console.error("Void Invoice Error:", error);
+    return { 
+      success: false, 
+      error: error?.message || "حدث خطأ غير متوقع أثناء إلغاء الفاتورة" 
+    };
   }
 }
