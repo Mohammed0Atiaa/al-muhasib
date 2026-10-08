@@ -24,17 +24,22 @@ export default async function SalesPage() {
   });
   const names = new Map(customers.map((c) => [c.id, c.name]));
 
-  const allocs = await prisma.receiptAllocation.groupBy({
-    by: ["invoiceId"],
+  const allocs = await prisma.receiptAllocation.findMany({
     where: {
       invoiceId: { in: invoices.map((i) => i.id) },
       receipt: { status: "POSTED" },
     },
-    _sum: { amount: true },
+    select: {
+      invoiceId: true,
+      amount: true,
+    },
   });
-  const collected = new Map(
-    allocs.map((a) => [a.invoiceId, Number(a._sum.amount ?? 0)])
-  );
+
+  const collected = new Map<string, number>();
+  allocs.forEach((a) => {
+    const current = collected.get(a.invoiceId) || 0;
+    collected.set(a.invoiceId, current + Number(a.amount));
+  });
 
   const money = (v: unknown) =>
     Number(v).toLocaleString("en", {
