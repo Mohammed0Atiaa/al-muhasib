@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
+import VoidInvoiceButton from "./void-button";
 
 export const dynamic = "force-dynamic";
 
@@ -80,8 +81,9 @@ export default async function SaleDetailPage({ params }: PageProps) {
             </p>
           </div>
 
-          {/* أزرار التنقل المتجاورة */}
-          <div className="flex items-center gap-2">
+          {/* أزرار التنقل والإلغاء المتجاورة */}
+          <div className="flex flex-wrap items-center gap-2">
+            {!isVoided && <VoidInvoiceButton invoiceId={invoice.id} />}
             <Link
               href="/dashboard"
               className="inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition"
@@ -99,12 +101,16 @@ export default async function SaleDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* تنبيه الإلغاء */}
+        {/* تنبيه الإلغاء وبيانات التوثيق */}
         {isVoided && (
-          <div className="p-4 mb-6 bg-red-50 border border-red-200 rounded-lg text-red-800">
-            <p className="font-bold">تم إلغاء هذه الفاتورة</p>
+          <div className="p-4 mb-6 bg-red-50 border border-red-200 rounded-xl text-red-800 shadow-sm">
+            <p className="font-bold text-base flex items-center gap-2">
+              <span>⚠️</span> هذه الفاتورة ملغاة
+            </p>
             {invoice.voidReason && (
-              <p className="text-sm mt-1">سبب الإلغاء: {invoice.voidReason}</p>
+              <p className="text-sm mt-1 bg-white p-2.5 rounded-lg border border-red-100 text-red-900 font-medium">
+                {invoice.voidReason}
+              </p>
             )}
           </div>
         )}
@@ -155,16 +161,6 @@ export default async function SaleDetailPage({ params }: PageProps) {
             </div>
           </div>
         </div>
-
-        {/* ملاحظات الفاتورة */}
-        {invoice.notes && (
-          <div className="bg-white p-4 rounded-xl border border-gray-200 mb-6 shadow-sm">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase mb-1">
-              البيان / ملاحظات الفاتورة (العنوان، التركيب، التسليم)
-            </h3>
-            <p className="text-sm text-gray-800 whitespace-pre-line">{invoice.notes}</p>
-          </div>
-        )}
 
         {/* جدول بنود الفاتورة */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6 shadow-sm">
