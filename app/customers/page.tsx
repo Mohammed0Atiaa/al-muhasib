@@ -73,7 +73,8 @@ export default async function CustomersPage() {
 
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-right">
+              <table className="w-full min-w-[1000px] text-sm text-right">
+
                 <thead className="bg-gray-50 text-gray-500 border-b">
                   <tr>
                     <th className="p-4">اسم العميل / رقم الحساب</th>
