@@ -9,7 +9,7 @@ export async function voidInvoice(invoiceId: string, reason: string) {
       return { success: false, error: "معرف الفاتورة غير موجود" };
     }
 
-    // جلب الفاتورة مع البنود
+    // 1. جلب الفاتورة مع بنودها
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { items: true },
@@ -31,25 +31,31 @@ export async function voidInvoice(invoiceId: string, reason: string) {
 
     const voidDetails = `[إلغاء كامل] السبب: ${reason || "بدون سبب"} | الوقت: ${voidedAtFormatted}`;
 
-    // تنفيذ التعديلات داخل Transaction
+    // 2. تنفيذ عملية الإلغاء واسترجاع المخزون داخل Transaction
     await prisma.$transaction(async (tx) => {
-      // 1. إعادة الكميات إلى المخزن
       for (const item of invoice.items) {
         if (item.productId) {
+          // البحث عن سجل المخزون المخصص لهذا المنتج وهذا المستودع
           const stockRecord = await tx.stock.findFirst({
-            where: { productId: item.productId },
+            where: {
+              productId: item.productId,
+              ...(invoice.warehouseId ? { warehouseId: invoice.warehouseId } : {}),
+            },
           });
 
           if (stockRecord) {
+            // إعادة الكميات للمخزن
             await tx.stock.update({
               where: { id: stockRecord.id },
-              data: { quantity: { increment: item.quantity } },
+              data: {
+                quantity: { increment: Number(item.quantity) },
+              },
             });
           }
         }
       }
 
-      // 2. تحديث حالة الفاتورة وتصفير المبالغ
+      // 3. تحديث الفاتورة لتصبح ملغاة وتصفير المستحقات
       await tx.invoice.update({
         where: { id: invoiceId },
         data: {
@@ -61,15 +67,16 @@ export async function voidInvoice(invoiceId: string, reason: string) {
       });
     });
 
+    // 4. إنعاش الكاش للصفحة لتحديث البيانات في الواجهة
     revalidatePath(`/sales/${invoiceId}`);
     revalidatePath("/sales");
 
     return { success: true };
   } catch (error: any) {
     console.error("Void Invoice Error:", error);
-    return { 
-      success: false, 
-      error: error?.message || "حدث خطأ غير متوقع أثناء إلغاء الفاتورة" 
+    return {
+      success: false,
+      error: error?.message || "حدث خطأ غير متوقع أثناء عملية الإلغاء",
     };
   }
 }
