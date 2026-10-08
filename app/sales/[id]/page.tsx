@@ -16,7 +16,6 @@ export default async function SaleDetailPage({ params }: PageProps) {
     const membership = await getMembership(user.id);
     const companyId = membership.companyId;
 
-    // جلب تفاصيل الفاتورة مع بنودها ودفعاتها
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: params.id,
@@ -34,7 +33,6 @@ export default async function SaleDetailPage({ params }: PageProps) {
       notFound();
     }
 
-    // جلب بيانات العميل إذا كان محدداً
     let customer = null;
     if (invoice.customerId) {
       customer = await prisma.customer.findUnique({
@@ -42,7 +40,6 @@ export default async function SaleDetailPage({ params }: PageProps) {
       });
     }
 
-    // جلب بيانات الفرع والمخزن
     const branch = await prisma.branch.findUnique({
       where: { id: invoice.branchId },
     });
@@ -56,7 +53,7 @@ export default async function SaleDetailPage({ params }: PageProps) {
     return (
       <main dir="rtl">
         {/* الترويسة وأزرار التحكم السريعة */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-200">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-gray-900">
@@ -83,17 +80,26 @@ export default async function SaleDetailPage({ params }: PageProps) {
             </p>
           </div>
 
+          {/* أزرار التنقل المتجاورة */}
           <div className="flex items-center gap-2">
             <Link
-              href="/sales"
-              className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              href="/dashboard"
+              className="inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition"
             >
-              عودة للمبيعات
+              <span>🏠</span>
+              <span>الرئيسية</span>
+            </Link>
+            <Link
+              href="/sales"
+              className="inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg shadow-sm hover:bg-purple-100 transition"
+            >
+              <span>📋</span>
+              <span>سجل الفواتير</span>
             </Link>
           </div>
         </div>
 
-        {/* تنبيه إذا كانت الفاتورة ملغاة */}
+        {/* تنبيه الإلغاء */}
         {isVoided && (
           <div className="p-4 mb-6 bg-red-50 border border-red-200 rounded-lg text-red-800">
             <p className="font-bold">تم إلغاء هذه الفاتورة</p>
@@ -150,7 +156,7 @@ export default async function SaleDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* عرض البيان / الملاحظات إذا وجدت */}
+        {/* ملاحظات الفاتورة */}
         {invoice.notes && (
           <div className="bg-white p-4 rounded-xl border border-gray-200 mb-6 shadow-sm">
             <h3 className="text-xs font-semibold text-gray-400 uppercase mb-1">
