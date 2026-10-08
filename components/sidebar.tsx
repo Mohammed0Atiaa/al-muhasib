@@ -107,9 +107,9 @@ export default function Sidebar({
               </Link>
 
               <Link
-                href="/payments/receipt"
+                href="/customers/receipts/new"
                 className={`flex items-center space-x-2 space-x-reverse py-1.5 px-3 rounded-md text-xs ${
-                  currentPath === "/payments/receipt"
+                  currentPath === "/customers/receipts/new"
                     ? "bg-purple-600 text-white font-bold"
                     : "text-gray-400 hover:text-white hover:bg-gray-800"
                 }`}
