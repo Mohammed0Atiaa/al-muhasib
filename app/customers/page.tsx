@@ -48,31 +48,33 @@ export default async function CustomersPage() {
     });
 
     return (
-      <div className="min-h-screen bg-gray-50" dir="rtl">
+      <div className="min-h-screen bg-gray-50 flex flex-col" dir="rtl">
         <Sidebar currentPath="/customers" />
-        <main className="md:ms-64 p-4 md:p-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+
+        {/* إضافة mr-0 للشاشات الصغيرة و md:mr-64 للشاشات الكبيرة لتفادي التداخل مع القائمة الجانبية */}
+        <main className="flex-1 md:mr-64 p-3 md:p-8 overflow-x-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Users className="w-7 h-7 text-purple-600" />
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Users className="w-6 h-6 text-purple-600" />
                 إدارة العملاء
               </h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-xs md:text-sm text-gray-500 mt-1">
                 عرض بيانات جميع العملاء، المتابعة المالية، والتحكم بالحسابات
               </p>
             </div>
             <Link
               href="/customers/new"
-              className="inline-flex items-center gap-2 bg-purple-600 text-white font-bold px-4 py-2.5 rounded-lg hover:bg-purple-700 transition shadow-sm"
+              className="inline-flex items-center justify-center gap-2 bg-purple-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-purple-700 transition shadow-sm text-sm"
             >
-              <UserPlus className="w-5 h-5" />
+              <UserPlus className="w-4 h-4" />
               إنشاء عميل جديد
             </Link>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-right min-w-[700px]">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-xs md:text-sm text-right whitespace-nowrap min-w-[650px]">
                 <thead className="bg-gray-50 text-gray-600 border-b">
                   <tr>
                     <th className="p-3">اسم العميل</th>
