@@ -31,43 +31,40 @@ export async function voidInvoice(invoiceId: string, reason: string) {
 
     const voidDetails = `[إلغاء كامل] السبب: ${reason || "بدون سبب"} | الوقت: ${voidedAtFormatted}`;
 
-    // 2. تنفيذ عملية الإلغاء واسترجاع المخزون داخل Transaction
-    await prisma.$transaction(async (tx) => {
-      for (const item of invoice.items) {
-        if (item.productId) {
-          // البحث عن سجل المخزون المخصص لهذا المنتج وهذا المستودع
-          const stockRecord = await tx.stock.findFirst({
-            where: {
-              productId: item.productId,
-              ...(invoice.warehouseId ? { warehouseId: invoice.warehouseId } : {}),
+    // 2. إعادة الكميات للمخزن لكل منتج في الفاتورة
+    for (const item of invoice.items) {
+      if (item.productId) {
+        // البحث عن أول سجل مخزون للمنتج
+        const stockRecord = await prisma.stock.findFirst({
+          where: {
+            productId: item.productId,
+            ...(invoice.warehouseId ? { warehouseId: invoice.warehouseId } : {}),
+          },
+        });
+
+        if (stockRecord) {
+          await prisma.stock.update({
+            where: { id: stockRecord.id },
+            data: {
+              quantity: { increment: Number(item.quantity) },
             },
           });
-
-          if (stockRecord) {
-            // إعادة الكميات للمخزن
-            await tx.stock.update({
-              where: { id: stockRecord.id },
-              data: {
-                quantity: { increment: Number(item.quantity) },
-              },
-            });
-          }
         }
       }
+    }
 
-      // 3. تحديث الفاتورة لتصبح ملغاة وتصفير المستحقات
-      await tx.invoice.update({
-        where: { id: invoiceId },
-        data: {
-          status: "VOIDED",
-          voidReason: voidDetails,
-          paidAmount: 0,
-          balanceDue: 0,
-        },
-      });
+    // 3. تحديث الفاتورة لتصبح ملغاة وتصفير المبالغ
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: "VOIDED",
+        voidReason: voidDetails,
+        paidAmount: 0,
+        balanceDue: 0,
+      },
     });
 
-    // 4. إنعاش الكاش للصفحة لتحديث البيانات في الواجهة
+    // 4. تحديث الكاش
     revalidatePath(`/sales/${invoiceId}`);
     revalidatePath("/sales");
 
