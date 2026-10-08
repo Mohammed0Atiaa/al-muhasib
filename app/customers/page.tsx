@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import Sidebar from "@/components/sidebar";
-import { Users, UserPlus, Eye, Edit } from "lucide-react";
+import { Users, UserPlus } from "lucide-react";
 import CustomerActions from "./customer-actions";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +54,7 @@ export default async function CustomersPage() {
 
         <div className="flex-1 md:mr-64 flex flex-col min-w-0">
           <main className="p-4 md:p-8 max-w-7xl w-full mx-auto">
-            {/* رأس الصفحة بنفس ستايل الفواتير والسندات */}
+            {/* رأس الصفحة */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <div>
                 <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -74,10 +74,10 @@ export default async function CustomersPage() {
               </Link>
             </div>
 
-            {/* جدول البيانات بنفس هيكلة الصفحات الأخرى */}
+            {/* جدول البيانات */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-right">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-sm text-right whitespace-nowrap min-w-[800px]">
                   <thead className="bg-gray-50 text-gray-600 border-b text-xs">
                     <tr>
                       <th className="py-3 px-4 font-semibold">اسم العميل</th>
@@ -127,22 +127,7 @@ export default async function CustomersPage() {
                             )}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <Link
-                                href={`/customers/${c.id}`}
-                                className="p-1.5 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-md transition"
-                                title="عرض التفاصيل"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Link>
-                              <Link
-                                href={`/customers/${c.id}/edit`}
-                                className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition"
-                                title="تعديل العميل"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Link>
-                            </div>
+                            <CustomerActions customer={c} />
                           </td>
                         </tr>
                       ))
