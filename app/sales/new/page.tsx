@@ -3,7 +3,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import InvoiceForm from "./invoice-form";
-import Sidebar from "@/components/sidebar";
 
 export const dynamic = "force-dynamic";
 
@@ -43,12 +42,10 @@ export default async function NewSalePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-  <Sidebar currentPath="/sales" />
-  <main className="ml-64 p-4" dir="rtl">
+    <main dir="rtl">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">فاتورة مبيعات جديدة</h1>
-        <Link href="/sales" className="text-sm text-purple-600">
+        <h1 className="text-2xl font-bold text-gray-900">فاتورة مبيعات جديدة</h1>
+        <Link href="/sales" className="text-sm text-purple-600 hover:underline">
           قائمة الفواتير
         </Link>
       </div>
@@ -75,6 +72,5 @@ export default async function NewSalePage() {
         }))}
       />
     </main>
-</div>
   );
 }
