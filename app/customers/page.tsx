@@ -20,11 +20,12 @@ export default async function CustomersPage() {
     });
 
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col" dir="rtl">
+      <div className="min-h-screen bg-gray-50 flex" dir="rtl">
         <Sidebar currentPath="/customers" />
 
-        <div className="flex-1 mr-0 md:mr-64 flex flex-col min-w-0 transition-all duration-200">
-          <main className="p-4 md:p-8 max-w-4xl w-full mx-auto">
+        {/* إزاحة mr-64 ثابتة تفصل محتوى الصفحة بالكامل عن السايدبار في جميع الوضعيات */}
+        <div className="flex-1 mr-64 min-w-0 p-4 md:p-8">
+          <main className="max-w-5xl w-full mx-auto">
             {/* رأس الصفحة */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <div>
@@ -45,7 +46,7 @@ export default async function CustomersPage() {
               </Link>
             </div>
 
-            {/* جدول مبسط ومختصر (الاسم، الهاتف، الإجراءات فقط) */}
+            {/* جدول مبسط ومبتعد عن السايدبار */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto w-full">
                 <table className="w-full text-sm text-right">
@@ -96,7 +97,7 @@ export default async function CustomersPage() {
     );
   } catch (error: any) {
     return (
-      <div className="p-8 bg-red-50 min-h-screen text-red-900" dir="rtl">
+      <div className="p-8 bg-red-50 min-h-screen text-red-900 mr-64" dir="rtl">
         <h1 className="text-xl font-bold mb-2">حدث خطأ أثناء تحميل الصفحة:</h1>
         <pre className="bg-white p-4 rounded border border-red-200 text-sm overflow-auto">
           {error?.message || String(error)}
