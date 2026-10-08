@@ -32,15 +32,25 @@ export default async function NewReceiptPage() {
     }),
   ]);
 
-  const done = await prisma.receiptAllocation.groupBy({
-    by: ["invoiceId"],
+  // جلب المبالغ المسددة بطريقة آمنة لتجنب مشاكل groupBy وأخطاء السيرفر
+  const allocations = await prisma.receiptAllocation.findMany({
     where: {
       invoiceId: { in: open.map((i) => i.id) },
       receipt: { status: "POSTED" },
     },
-    _sum: { amount: true },
+    select: {
+      invoiceId: true,
+      amount: true,
+    },
   });
-  const doneMap = new Map(done.map((d) => [d.invoiceId, Number(d._sum.amount ?? 0)]));
+
+  const doneMap = new Map<string, number>();
+  for (const alloc of allocations) {
+    if (alloc.invoiceId) {
+      const current = doneMap.get(alloc.invoiceId) ?? 0;
+      doneMap.set(alloc.invoiceId, current + Number(alloc.amount ?? 0));
+    }
+  }
 
   const invoices = open
     .map((i) => ({
@@ -58,9 +68,9 @@ export default async function NewReceiptPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ضع هنا <Sidebar currentPath="/customers/receipts/new" /> */}
-      <main className="ml-64 p-4" dir="rtl">
+    <div className="min-h-screen bg-gray-50" dir="rtl">
+      <Sidebar currentPath="/customers/receipts/new" />
+      <main className="ml-64 p-4">
         <div className="mx-auto max-w-xl">
           <h1 className="mb-4 text-2xl font-bold">سند قبض جديد</h1>
           <ReceiptForm
