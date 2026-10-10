@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-
+import { allocatedByInvoice } from "./allocations";
 export type ReceiptData = {
   number: string;
   date: string;
@@ -45,17 +45,7 @@ export async function loadReceiptSheet(
       },
       select: { id: true, balanceDue: true },
     }),
-  ]);
-
-  const done = await prisma.receiptAllocation.groupBy({
-    by: ["invoiceId"],
-    where: {
-      invoiceId: { in: open.map((o) => o.id) },
-      receipt: { status: "POSTED" },
-    },
-    _sum: { amount: true },
-  });
-  const doneMap = new Map(done.map((d) => [d.invoiceId, Number(d._sum.amount ?? 0)]));
+  ]);const doneMap = await allocatedByInvoice(open.map((o) => o.id));
   const customerBalance = open.reduce(
     (s, o) => s + Math.max(Number(o.balanceDue) - (doneMap.get(o.id) ?? 0), 0),
     0
