@@ -184,7 +184,7 @@ model Invoice {
   voidedAt        DateTime?
   voidedByUserId  String?
   voidReason      String?
-
+shareToken      String?   @unique
   items    InvoiceItem[]
   payments Payment[]
 
