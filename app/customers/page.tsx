@@ -88,6 +88,7 @@ export default async function CustomersPage() {
       </main>
     );
   } catch (error: any) {
+    if (typeof error?.digest === "string" && error.digest.startsWith("NEXT_")) throw error;
     return (
       <div className="p-8 bg-red-50 min-h-screen text-red-900" dir="rtl">
         <h1 className="text-xl font-bold mb-2">حدث خطأ أثناء تحميل الصفحة:</h1>
