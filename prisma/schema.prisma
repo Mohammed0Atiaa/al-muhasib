@@ -38,7 +38,13 @@ model Company {
   name         String
   baseCurrency String   @default("KWD")
   createdAt    DateTime @default(now())
-
+status      String    @default("ACTIVE")
+  country     String?
+  email       String?
+  phone       String?
+  address     String?
+  suspendedAt DateTime?
+  deletedAt   DateTime?
   memberships   Membership[]
   branches      Branch[]
   warehouses    Warehouse[]
