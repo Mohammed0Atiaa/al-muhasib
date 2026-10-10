@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import VoidInvoiceButton from "./void-button";
-
+import InvoiceActions from "./invoice-actions";
 export const dynamic = "force-dynamic";
 
 interface PageProps {
@@ -69,6 +69,7 @@ export default async function SaleDetailPage({ params }: PageProps) {
                     : "bg-green-100 text-green-700"
                 }`}
               >
+               <InvoiceActions invoiceId={invoice.id} />
                 {isVoided
                   ? "ملغاة"
                   : Number(invoice.balanceDue) > 0
