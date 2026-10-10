@@ -25,11 +25,11 @@ export default function VoidInvoiceButton({ invoiceId }: VoidInvoiceButtonProps)
       const res = await voidInvoice(invoiceId, reason);
 
       if (res && res.success) {
-        alert("تم إلغاء الفاتورة بنجاح وإعادة البضاعة إلى المخزن.");
+        
         setIsOpen(false);
         setReason("");
         // إعادة تحميل بيانات الصفحة فوراً لتنعكس الحالة والمخزن
-        router.refresh();
+        window.location.href = `/sales/${invoiceId}?done=voided`;
       } else {
         alert(res?.error || "حدث خطأ أثناء إلغاء الفاتورة");
       }
