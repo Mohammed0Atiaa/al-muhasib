@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/lib/company";
 import VoidInvoiceButton from "./void-button";
 import InvoiceActions from "./invoice-actions";
+import SavedBanner from "./saved-banner";
+
 export const dynamic = "force-dynamic";
 
 interface PageProps {
@@ -53,6 +55,7 @@ export default async function SaleDetailPage({ params }: PageProps) {
 
     return (
       <main dir="rtl">
+        <SavedBanner number={invoice.number} invoiceId={invoice.id} />
         {/* الترويسة وأزرار التحكم السريعة */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-200">
           <div>
