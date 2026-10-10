@@ -188,7 +188,7 @@ export default function InvoiceForm(props: {
     });
 
     setSaving(false);
-    if (res.ok) router.push("/sales");
+   if (res.ok) router.push(`/sales/${res.id}?done=created`);
     else setError(res.error);
   }
 
