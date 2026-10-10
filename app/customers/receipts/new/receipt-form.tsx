@@ -61,10 +61,7 @@ export default function ReceiptForm(props: {
     });
     setSaving(false);
     if (res.ok) {
-      setMessage(`تم إصدار السند ${res.number}`);
-      setAmount("");
-      setNotes("");
-      router.refresh();
+      router.push(`/customers/receipts/${res.id}?done=1`);
     } else {
       setError(res.error);
     }
