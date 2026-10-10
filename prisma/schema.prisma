@@ -61,7 +61,7 @@ model Membership {
   role      String  @default("CASHIER")
   branchId  String?
   company   Company @relation(fields: [companyId], references: [id])
-
+mustChangePassword Boolean @default(false)
   @@unique([companyId, userId])
   @@index([userId])
 }
@@ -303,4 +303,8 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([companyId, entityType, entityId])
+}
+model PlatformAdmin {
+  userId    String   @id
+  createdAt DateTime @default(now())
 }
