@@ -23,14 +23,11 @@ export default async function TeamPage() {
     return <div className="p-6 text-center">لا توجد صلاحية مرتبطة بهذا الحساب.</div>;
   }
 
-  // جلب موظفي نفس الشركة حصراً
   const members = await prisma.membership.findMany({
     where: { companyId: myMembership.companyId },
     orderBy: { createdAt: "desc" },
   });
 
-  // جلب بيانات المستخدمين من Stack Auth لعرض الإيميلات والأسماء
-  // بما أننا نحتاج لبيانات الدخول، سنعرض الـ userId أو نجلب ما توفر
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6" dir="rtl">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -38,12 +35,20 @@ export default async function TeamPage() {
           <h1 className="text-2xl font-bold text-gray-900">إدارة فريق العمل</h1>
           <p className="text-sm text-gray-500">إضافة الموظفين وتحديد صلاحياتهم ووظائفهم داخل الشركة</p>
         </div>
-        <Link
-          href="/dashboard/team/new"
-          className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-purple-700"
-        >
-          + إضافة موظف جديد
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard"
+            className="rounded-lg border bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            الرئيسية
+          </Link>
+          <Link
+            href="/dashboard/team/new"
+            className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-purple-700"
+          >
+            + إضافة موظف جديد
+          </Link>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
