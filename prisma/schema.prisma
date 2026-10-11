@@ -55,16 +55,23 @@ status      String    @default("ACTIVE")
 }
 
 model Membership {
-  id        String  @id @default(cuid())
-  companyId String
-  userId    String
-  role      String  @default("CASHIER")
-  branchId  String?
-  company   Company @relation(fields: [companyId], references: [id])
-mustChangePassword Boolean @default(false)
+  id                 String   @id @default(cuid())
+  companyId          String
+  userId             String
+  role               String   @default("CASHIER") // (MANAGER, ACCOUNTANT, STOREKEEPER, CASHIER)
+  branchId           String?
+  phone              String?  // رقم الهاتف اختياري
+  nationality        String?  // الجنسية اختيارية
+  status             String   @default("ACTIVE") // ACTIVE أو SUSPENDED
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  
+  company            Company  @relation(fields: [companyId], references: [id])
+
   @@unique([companyId, userId])
   @@index([userId])
 }
+
 
 model Branch {
   id        String  @id @default(cuid())
