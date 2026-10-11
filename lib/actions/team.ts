@@ -197,3 +197,41 @@ export async function deleteEmployee(membershipId: string): Promise<Result> {
     return fail(e);
   }
 }
+export async function resetEmployeePassword(membershipId: string): Promise<{ ok: true; newPassword: string } | { ok: false; error: string }> {
+  try {
+    const { companyId } = await getMyCompanyMembership();
+    const target = await prisma.membership.findUnique({
+      where: { id: membershipId },
+    });
+
+    if (!target || target.companyId !== companyId) {
+      throw new UserError("الموظف غير موجود");
+    }
+
+    if (target.role === "OWNER") {
+      throw new UserError("لا يمكن تغيير كلمة سر المالك الأساسي بهذه الطريقة");
+    }
+
+    // توليد كلمة سر جديدة عشوائية قوية
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+    const array = new Uint32Array(10);
+    crypto.getRandomValues(array);
+    const newPassword = Array.from(array, (n) => chars[n % chars.length]).join("");
+
+    // تحديث كلمة السر في Stack Auth
+    const u = await stackServerApp.getUser(target.userId);
+    if (!u) {
+      throw new UserError("حساب المستخدم غير موجود في نظام المصادقة");
+    }
+
+    await u.update({
+      password: newPassword,
+    });
+
+    return { ok: true, newPassword };
+  } catch (e) {
+    if (e instanceof UserError) return { ok: false, error: e.message };
+    console.error(e);
+    return { ok: false, error: "حدث خطأ أثناء إعادة تعيين كلمة السر" };
+  }
+}
