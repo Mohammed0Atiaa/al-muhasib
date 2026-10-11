@@ -68,9 +68,12 @@ export default async function TeamPage() {
               return (
                 <tr key={m.id} className={m.status === "SUSPENDED" ? "bg-amber-50/50" : ""}>
                   <td className="p-3">
-                    <div className="font-bold text-gray-900">
-                      {isMe ? "أنت (الحساب الحالي)" : `مستخدم نظام`}
-                    </div>
+                    <Link
+                      href={`/dashboard/team/${m.id}`}
+                      className="font-bold text-purple-700 hover:underline block"
+                    >
+                      {isMe ? "أنت (الحساب الحالي)" : "عرض ملف الموظف والتفاصيل 🔗"}
+                    </Link>
                     <div className="text-xs text-gray-400 font-mono" dir="ltr">
                       {m.userId.substring(0, 16)}...
                     </div>
@@ -96,13 +99,21 @@ export default async function TeamPage() {
                     </span>
                   </td>
                   <td className="p-3">
-                    <TeamActions
-                      membershipId={m.id}
-                      currentRole={m.role}
-                      status={m.status}
-                      isOwner={m.role === "OWNER"}
-                      isMe={isMe}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/dashboard/team/${m.id}`}
+                        className="rounded-lg border border-gray-300 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                      >
+                        التفاصيل / كلمة السر
+                      </Link>
+                      <TeamActions
+                        membershipId={m.id}
+                        currentRole={m.role}
+                        status={m.status}
+                        isOwner={m.role === "OWNER"}
+                        isMe={isMe}
+                      />
+                    </div>
                   </td>
                 </tr>
               );
@@ -110,7 +121,7 @@ export default async function TeamPage() {
             {members.length === 0 && (
               <tr>
                 <td colSpan={5} className="p-8 text-center text-gray-400">
-                  لا توجد موظفين مضافين حتى الآن
+                  لا يوجد موظفون مضافون حتى الآن
                 </td>
               </tr>
             )}
