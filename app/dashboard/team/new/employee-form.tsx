@@ -35,7 +35,7 @@ export default function EmployeeForm() {
     }
   }
 
-  const field = "w-full rounded-lg border px-3 py-2 text-sm";
+  const field = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none";
 
   if (created) {
     const text = `الإيميل: ${created.email}\nكلمة السر: ${created.password}`;
@@ -54,6 +54,9 @@ export default function EmployeeForm() {
           </button>
           <Link href="/dashboard/team" className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
             العودة للموظفين
+          </Link>
+          <Link href="/dashboard" className="rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            الرئيسية
           </Link>
         </div>
       </div>
@@ -78,7 +81,7 @@ export default function EmployeeForm() {
           <input dir="ltr" className={field} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="أدخل كلمة السر أو قم بالتوليد" />
           <button
             type="button"
-            className="whitespace-nowrap rounded-lg border px-3 text-xs font-medium text-purple-600 hover:bg-purple-50"
+            className="whitespace-nowrap rounded-lg border border-purple-200 px-3 text-xs font-medium text-purple-600 hover:bg-purple-50"
             onClick={() => setPassword(generatePassword())}
           >
             توليد عشوائي
@@ -103,13 +106,7 @@ export default function EmployeeForm() {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">الجنسية (اختياري)</label>
-        <input className={field} value="كويتي" disabled className={`${field} bg-gray-100 cursor-not-allowed`} /> {/* يمكنك جعلها حقل نصي حر كما ترغب */}
-      </div>
-
-      {/* أو بدلاً من النص الثابت للجنسية، نجعله حقل نصي اختياري حر */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">الجنسية (اختياري)</label>
-        <input className={field} value={nationality} onChange={(e) => setNationality(e.target.value)} placeholder="مثال: مصري، كويتي، هندي..." />
+        <input className={field} value={nationality} onChange={(e) => setNationality(e.target.value)} placeholder="مثال: كويتي، مصري، هندي..." />
       </div>
 
       {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
