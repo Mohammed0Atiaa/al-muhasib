@@ -24,12 +24,15 @@ export default function Sidebar({
 }: {
   currentPath: string;
 }) {
-  // فتح القوائم تلقائياً إذا كان المسار الحالي يتبع لأحد الأقسام
   const [isSalesOpen, setIsSalesOpen] = useState(
     currentPath.startsWith("/sales") || currentPath.startsWith("/payments")
   );
   const [isCustomersOpen, setIsCustomersOpen] = useState(
     currentPath.startsWith("/customers")
+  );
+  // حالة فتح وعرض قائمة الموظفين المنسدلة
+  const [isTeamOpen, setIsTeamOpen] = useState(
+    currentPath.startsWith("/dashboard/team")
   );
 
   return (
@@ -195,6 +198,56 @@ export default function Sidebar({
           )}
         </div>
 
+        {/* قسم إدارة الموظفين القابل للتنسدل (جديد) */}
+        <div>
+          <button
+            onClick={() => setIsTeamOpen(!isTeamOpen)}
+            className={`w-full flex items-center justify-between py-2 px-3 rounded-lg text-sm ${
+              currentPath.startsWith("/dashboard/team")
+                ? "bg-gray-800 text-purple-400 font-semibold"
+                : "hover:bg-gray-800 text-gray-300"
+            }`}
+          >
+            <div className="flex items-center space-x-3 space-x-reverse">
+              <Users className="w-5 h-5 text-purple-400" />
+              <span>إدارة الموظفين</span>
+            </div>
+            {isTeamOpen ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </button>
+
+          {isTeamOpen && (
+            <div className="mt-1 mr-4 space-y-1 border-r-2 border-gray-700 pr-3">
+              <Link
+                href="/dashboard/team"
+                className={`flex items-center space-x-2 space-x-reverse py-1.5 px-3 rounded-md text-xs ${
+                  currentPath === "/dashboard/team" && currentPath.length === 15
+                    ? "bg-purple-600 text-white font-bold"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800"
+                }`}
+              >
+                <Users className="w-4 h-4 text-purple-400" />
+                <span>قائمة الموظفين</span>
+              </Link>
+
+              <Link
+                href="/dashboard/team/new"
+                className={`flex items-center space-x-2 space-x-reverse py-1.5 px-3 rounded-md text-xs ${
+                  currentPath === "/dashboard/team/new"
+                    ? "bg-purple-600 text-white font-bold"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800"
+                }`}
+              >
+                <UserPlus className="w-4 h-4 text-green-400" />
+                <span>إنشاء موظف جديد</span>
+              </Link>
+            </div>
+          )}
+        </div>
+
         {/* المخزون */}
         <Link
           href="/inventory"
@@ -219,19 +272,6 @@ export default function Sidebar({
         >
           <Plus className="w-5 h-5" />
           <span>إضافة منتج</span>
-        </Link>
-
-                {/* إدارة الموظفين */}
-        <Link
-          href="/dashboard/team"
-          className={`flex items-center space-x-3 space-x-reverse py-2 px-3 rounded-lg text-sm ${
-            currentPath.startsWith("/dashboard/team")
-              ? "bg-purple-600 text-white font-semibold"
-              : "hover:bg-gray-800 text-gray-300"
-          }`}
-        >
-          <Users className="w-5 h-5" />
-          <span>إدارة الموظفين</span>
         </Link>
 
         {/* الإعدادات */}
