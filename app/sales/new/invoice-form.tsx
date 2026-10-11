@@ -51,7 +51,7 @@ export default function InvoiceForm(props: {
   // العملة مثبتة تلقائياً من نظام الشركة بدون إتاحة التعديل
   const currency = baseCurrency;
 
-  // 5 أسطر مبيعات افتراضية
+  // 🟢 5 أسطر مبيعات افتراضية في جدول المنتجات
   const [lines, setLines] = useState<Line[]>([
     { productId: "", name: "", quantity: 1, unitPrice: 0, searchQuery: "", showDropdown: false },
     { productId: "", name: "", quantity: 1, unitPrice: 0, searchQuery: "", showDropdown: false },
@@ -88,7 +88,6 @@ export default function InvoiceForm(props: {
   const paid = (Number(cash) || 0) + (Number(knet) || 0) + (Number(card) || 0);
   const balance = total - paid;
 
-  // تسمية العملة بالعربية للعرض
   const currencyLabel = currency === "EGP" ? "جنيه مصري" : currency === "KWD" ? "دينار كويتي" : currency;
 
   useEffect(() => {
@@ -248,7 +247,7 @@ export default function InvoiceForm(props: {
 
   return (
     <div dir="rtl" className="space-y-4">
-      {/* اختيار الفرع والمعدات فقط (تم إلغاء خانة العملة) */}
+      {/* اختيار الفرع والمستودع */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-4 rounded-xl border shadow-sm">
         <div>
           <label className="block text-xs font-bold text-gray-700 mb-1">الفرع</label>
@@ -268,7 +267,7 @@ export default function InvoiceForm(props: {
         </div>
       </div>
 
-      {/* جدول أسطر المبيعات (POS Multi-Line Table) */}
+      {/* 🟢 جدول أسطر المبيعات الديناميكي (Multi-Line POS Table) */}
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden p-4 space-y-3">
         <div className="flex items-center justify-between border-b pb-2">
           <h3 className="font-bold text-gray-800 text-sm">جدول الأصناف والمنتجات</h3>
