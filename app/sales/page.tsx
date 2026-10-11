@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,23 +11,36 @@ interface SalesPageProps {
 export default async function SalesListPage({ searchParams }: SalesPageProps) {
   const query = searchParams.q?.trim() || "";
 
-  // البحث في الفواتير برقم الفاتورة أو بيانات العميل (اسم/هاتف)
+  // 1. جلب المستخدم الحالي وعضويته لمعرفة شركته
+  const user = await getCurrentUser();
+  const myMembership = await prisma.membership.findFirst({
+    where: { userId: user.id },
+  });
+
+  if (!myMembership) {
+    return <div className="p-6 text-center text-red-600">لا توجد صلاحية أو شركة مرتبطة بهذا الحساب.</div>;
+  }
+
+  // 2. البحث في الفواتير مع العزل التام برقم الشركة companyId
+  const searchCondition = query
+    ? [
+        { number: { contains: query, mode: "insensitive" as const } },
+        {
+          customer: {
+            OR: [
+              { name: { contains: query, mode: "insensitive" as const } },
+              { phone: { contains: query, mode: "insensitive" as const } },
+            ],
+          },
+        },
+      ]
+    : undefined;
+
   const invoices = await prisma.invoice.findMany({
-    where: query
-      ? {
-          OR: [
-            { number: { contains: query, mode: "insensitive" } },
-            {
-              customer: {
-                OR: [
-                  { name: { contains: query, mode: "insensitive" } },
-                  { phone: { contains: query, mode: "insensitive" } },
-                ],
-              },
-            },
-          ],
-        }
-      : undefined,
+    where: {
+      companyId: myMembership.companyId, // 👈 العزل الأساسي والمضمون لكل شركة
+      ...(searchCondition ? { OR: searchCondition } : {}),
+    },
     include: {
       customer: true,
     },
