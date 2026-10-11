@@ -221,6 +221,19 @@ export default function Sidebar({
           <span>إضافة منتج</span>
         </Link>
 
+                {/* إدارة الموظفين */}
+        <Link
+          href="/dashboard/team"
+          className={`flex items-center space-x-3 space-x-reverse py-2 px-3 rounded-lg text-sm ${
+            currentPath.startsWith("/dashboard/team")
+              ? "bg-purple-600 text-white font-semibold"
+              : "hover:bg-gray-800 text-gray-300"
+          }`}
+        >
+          <Users className="w-5 h-5" />
+          <span>إدارة الموظفين</span>
+        </Link>
+
         {/* الإعدادات */}
         <Link
           href="/settings"
