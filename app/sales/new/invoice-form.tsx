@@ -23,18 +23,19 @@ export default function InvoiceForm(props: {
   currencies: CurrencyInfo[];
   baseCurrency: string;
 }) {
-  const { branches, customers: initialCustomers, products, currencies, baseCurrency } = props;
+  const { branches, products, currencies, baseCurrency } = props;
   const router = useRouter();
 
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
   const [warehouseId, setWarehouseId] = useState("");
   
-  // حالة العميل الذكية
+  // حالة العميل في نافذة الدفع
   const [phone, setPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
 
   // حقل البيان / الملاحظات
   const [notes, setNotes] = useState("");
@@ -143,12 +144,17 @@ export default function InvoiceForm(props: {
   }
 
   async function submit() {
+    if (!customerName.trim() || !phone.trim()) {
+      setError("اسم العميل ورقم الهاتف إجباريان عند إتمام الدفع.");
+      return;
+    }
+
     setError("");
     setSaving(true);
 
     let activeCustomerId = customerId;
 
-    // إذا كان العميل جديداً وتم كتابة اسمه ورقم هاتفه، نقوم بحفظه تلقائياً أولاً
+    // حفظ العميل الجديد تلقائياً إن لم يكن موجوداً
     if (isNewCustomer && customerName.trim() && phone.trim()) {
       try {
         const createRes = await fetch("/api/customers", {
@@ -188,12 +194,15 @@ export default function InvoiceForm(props: {
     });
 
     setSaving(false);
-   if (res.ok) router.push(`/sales/${res.id}?done=created`);
-    else setError(res.error);
+    if (res.ok) router.push(`/sales/${res.id}?done=created`);
+    else {
+      setError(res.error);
+      setShowCheckoutModal(false);
+    }
   }
 
   const field = "w-full rounded-lg border px-3 py-2 text-sm";
-  const canSubmit = lines.length > 0 && rate !== null && !saving;
+  const canProceedToCheckout = lines.length > 0 && rate !== null;
 
   return (
     <div dir="rtl" className="space-y-4">
@@ -223,80 +232,33 @@ export default function InvoiceForm(props: {
         </select>
       </div>
 
-      {/* قسم العميل الذكي (رقم الهاتف والاسم) */}
-      <div className="p-4 rounded-xl border bg-white space-y-3">
-        <h3 className="text-xs font-bold text-gray-500 uppercase">بيانات العميل والتركيب</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">رقم الهاتف (للبحث أو التسجيل)</label>
-            <input
-              type="text"
-              className={field}
-              placeholder="ابحث برقم الهاتف..."
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">اسم العميل</label>
-            <input
-              type="text"
-              className={field}
-              placeholder="اسم العميل (نقدي إذا فارغ)..."
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* تنبيهات حالة العميل */}
-        {isSearchingCustomer && <p className="text-xs text-gray-400">جاري التحقق من رقم الهاتف...</p>}
-        {customerId && !isSearchingCustomer && (
-          <p className="text-xs text-green-600 font-medium">✓ عميل مسجل مسبقاً، سيتم ربط الفاتورة به.</p>
-        )}
-        {isNewCustomer && phone.length >= 3 && (
-          <p className="text-xs text-amber-600 font-medium">⭐ رقم جديد: سيتم حفظه تلقائياً عند حفظ الفاتورة.</p>
-        )}
-
-        {/* حقل البيان / الملاحظات */}
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">البيان / ملاحظات (العنوان، موعد التسليم، التركيب)</label>
-          <textarea
-            rows={2}
-            className={field}
-            placeholder="اكتب تفاصيل العنوان أو التركيب أو التسليم..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
-      </div>
-
       {rate === null && (
         <p className="text-sm text-red-600">لا يوجد سعر صرف لهذه العملة، أضفه أولاً.</p>
       )}
 
       {/* البحث عن المنتجات */}
-      <div>
+      <div className="relative">
+        <label className="block text-xs font-bold text-gray-700 mb-1">بحث واختيار المنتجات</label>
         <input
           className={field}
-          placeholder="ابحث عن المنتج بالاسم أو الكود..."
+          placeholder="ابحث عن المنتج بالاسم أو الكود (SKU)..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         {results.length > 0 && (
-          <div className="mt-1 divide-y rounded-lg border bg-white shadow-sm">
+          <div className="absolute z-20 left-0 right-0 mt-1 divide-y rounded-lg border bg-white shadow-lg">
             {results.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => addProduct(p)}
-                className="flex w-full items-center justify-between px-3 py-2 text-start hover:bg-gray-50"
+                className="flex w-full items-center justify-between px-3.5 py-2.5 text-start hover:bg-purple-50 transition"
               >
-                <span>
+                <span className="font-semibold text-gray-800">
                   {p.name} {p.sku ? `(${p.sku})` : ""}
                 </span>
-                <span className="text-sm text-gray-500">
-                  المتاح: {p.stocks[activeWarehouseId] ?? 0}
+                <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                  المتاح بالمخزن: {p.stocks[activeWarehouseId] ?? 0}
                 </span>
               </button>
             ))}
@@ -304,125 +266,217 @@ export default function InvoiceForm(props: {
         )}
       </div>
 
-      {/* جدول المنتجات المختارة */}
-      <div className="space-y-2">
-        {lines.map((l) => (
-          <div key={l.productId} className="rounded-lg border p-3 bg-white">
-            <div className="mb-2 flex justify-between items-center">
-              <span className="font-medium text-sm">{l.name}</span>
-              <button
-                type="button"
-                className="text-red-600 text-xs font-semibold"
-                onClick={() => setLines((prev) => prev.filter((x) => x.productId !== l.productId))}
-              >
-                حذف
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-[10px] text-gray-400 mb-0.5">الكمية</label>
-                <input
-                  type="number"
-                  min={1}
-                  className={field}
-                  value={l.quantity}
-                  onChange={(e) =>
-                    updateLine(l.productId, { quantity: Math.max(1, Math.floor(Number(e.target.value) || 1)) })
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] text-gray-400 mb-0.5">سعر الوحدة</label>
-                <input
-                  type="number"
-                  step="any"
-                  className={field}
-                  value={l.unitPrice}
-                  onChange={(e) => updateLine(l.productId, { unitPrice: Number(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="flex flex-col justify-end items-end pb-2">
-                <span className="text-[10px] text-gray-400">الإجمالي</span>
-                <span className="font-bold text-sm">{fmt(l.quantity * l.unitPrice)}</span>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* جدول المنتجات المختارة (POS Style) */}
+      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+        <table className="w-full text-sm text-right">
+          <thead className="bg-gray-50 border-b text-gray-600">
+            <tr>
+              <th className="p-3">المنتج</th>
+              <th className="p-3 w-32">سعر الوحدة (ثابت)</th>
+              <th className="p-3 w-28">الكمية</th>
+              <th className="p-3 w-32">الإجمالي</th>
+              <th className="p-3 w-16 text-center">حذف</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {lines.map((l) => (
+              <tr key={l.productId} className="hover:bg-gray-50/50">
+                <td className="p-3 font-semibold text-gray-900">{l.name}</td>
+                <td className="p-3 text-gray-600 font-mono">{fmt(l.unitPrice)}</td>
+                <td className="p-3">
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-full border rounded-lg p-1.5 text-center text-sm font-bold focus:ring-2 focus:ring-purple-500 outline-none"
+                    value={l.quantity}
+                    onChange={(e) =>
+                      updateLine(l.productId, { quantity: Math.max(1, Math.floor(Number(e.target.value) || 1)) })
+                    }
+                  />
+                </td>
+                <td className="p-3 font-bold text-purple-700 font-mono">{fmt(l.quantity * l.unitPrice)}</td>
+                <td className="p-3 text-center">
+                  <button
+                    type="button"
+                    className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 rounded bg-red-50"
+                    onClick={() => setLines((prev) => prev.filter((x) => x.productId !== l.productId))}
+                  >
+                    ✕
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {lines.length === 0 && (
+              <tr>
+                <td colSpan={5} className="p-8 text-center text-gray-400">
+                  لم يتم إضافة منتجات للفاتورة بعد. ابحث واختر المنتجات أعلاه.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* الخصم */}
-      <div className="grid grid-cols-2 gap-3">
-        <select className={field} value={discountType} onChange={(e) => setDiscountType(e.target.value as "NONE" | "PERCENT" | "FIXED")}>
-          <option value="NONE">بدون خصم</option>
-          <option value="PERCENT">خصم %</option>
-          <option value="FIXED">خصم مبلغ</option>
-        </select>
-        <input
-          type="number"
-          step="any"
-          className={field}
-          placeholder="قيمة الخصم"
-          value={discountValue}
-          onChange={(e) => setDiscountValue(e.target.value)}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-4 rounded-xl border shadow-sm">
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">نوع الخصم</label>
+          <select className={field} value={discountType} onChange={(e) => setDiscountType(e.target.value as "NONE" | "PERCENT" | "FIXED")}>
+            <option value="NONE">بدون خصم</option>
+            <option value="PERCENT">خصم نسبة مئوية %</option>
+            <option value="FIXED">خصم مبلغ ثابت</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">قيمة الخصم</label>
+          <input
+            type="number"
+            step="any"
+            className={field}
+            placeholder="قيمة الخصم"
+            value={discountValue}
+            onChange={(e) => setDiscountValue(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* قسم الدفع */}
-      <div className="rounded-lg border p-3 bg-white">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="font-medium text-sm">الدفع</span>
+      <div className="rounded-xl border p-4 bg-white shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-sm text-gray-800">طرق الدفع والتحصيل</span>
           <button
             type="button"
-            className="text-xs text-purple-600 font-semibold"
+            className="text-xs text-purple-700 bg-purple-50 px-3 py-1 rounded-md font-semibold hover:bg-purple-100"
             onClick={() => {
               setCash(fmt(total));
               setKnet("");
               setCard("");
             }}
           >
-            كاش بالكامل
+            تغطية المبلغ بالكامل (كاش)
           </button>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="block text-[10px] text-gray-400 mb-0.5">كاش</label>
+            <label className="block text-xs text-gray-600 mb-1">كاش (نقدي)</label>
             <input type="number" step="any" className={field} placeholder="0.000" value={cash} onChange={(e) => setCash(e.target.value)} />
           </div>
           <div>
-            <label className="block text-[10px] text-gray-400 mb-0.5">كي نت</label>
+            <label className="block text-xs text-gray-600 mb-1">شبكة (كي نت)</label>
             <input type="number" step="any" className={field} placeholder="0.000" value={knet} onChange={(e) => setKnet(e.target.value)} />
           </div>
           <div>
-            <label className="block text-[10px] text-gray-400 mb-0.5">فيزا</label>
+            <label className="block text-xs text-gray-600 mb-1">بطاقة ائتمانية (فيزا)</label>
             <input type="number" step="any" className={field} placeholder="0.000" value={card} onChange={(e) => setCard(e.target.value)} />
           </div>
         </div>
       </div>
 
-      {/* ملخص المبالغ */}
-      <div className="space-y-1 rounded-lg bg-gray-100 p-3 text-sm">
-        <div className="flex justify-between"><span>المجموع</span><span>{fmt(subtotal)}</span></div>
-        <div className="flex justify-between"><span>الخصم</span><span>{fmt(discount)}</span></div>
-        <div className="flex justify-between text-base font-bold border-t pt-1">
-          <span>الإجمالي ({currency})</span><span>{fmt(total)}</span>
+      {/* ملخص المبالغ المالية */}
+      <div className="space-y-1.5 rounded-xl bg-gray-50 p-4 border text-sm shadow-sm">
+        <div className="flex justify-between text-gray-600"><span>المجموع الفرعي</span><span>{fmt(subtotal)}</span></div>
+        <div className="flex justify-between text-gray-600"><span>قيمة الخصم</span><span>{fmt(discount)}</span></div>
+        <div className="flex justify-between text-base font-bold text-gray-900 border-t pt-2">
+          <span>الإجمالي النهائي ({currency})</span><span>{fmt(total)}</span>
         </div>
-        <div className="flex justify-between"><span>المدفوع</span><span>{fmt(paid)}</span></div>
-        <div className="flex justify-between font-semibold text-purple-700">
-          <span>{balance > 0 ? "الآجل (المتبقي)" : "المتبقي"}</span>
+        <div className="flex justify-between text-gray-600"><span>إجمالي المدفوع</span><span>{fmt(paid)}</span></div>
+        <div className="flex justify-between font-bold text-purple-700 text-base">
+          <span>{balance > 0 ? "المبلغ الآجل (المتبقي)" : "المتبقي للعميل"}</span>
           <span>{fmt(Math.max(balance, 0))}</span>
         </div>
       </div>
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error && <p className="text-red-600 text-sm font-semibold p-3 bg-red-50 rounded-lg">{error}</p>}
 
+      {/* زر الانتقال لنافذة إدخال بيانات العميل والدفع */}
       <button
         type="button"
-        disabled={!canSubmit}
-        onClick={submit}
-        className="w-full rounded-lg bg-purple-600 py-3 font-semibold text-white disabled:opacity-50 hover:bg-purple-700 transition"
+        disabled={!canProceedToCheckout}
+        onClick={() => setShowCheckoutModal(true)}
+        className="w-full rounded-xl bg-green-600 py-3.5 font-bold text-white disabled:opacity-50 hover:bg-green-700 transition text-lg shadow-md"
       >
-        {saving ? "جاري الحفظ وإصدار الفاتورة..." : "حفظ الفاتورة"}
+        إتمام الدفع وتسجيل العميل 💳 ({fmt(total)} {currency})
       </button>
+
+      {/* نافذة إدخال بيانات العميل عند تقفيل الفاتورة (Checkout Modal) */}
+      {showCheckoutModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4" dir="rtl">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-lg font-bold text-gray-900">بيانات العميل (إجباري)</h3>
+              <button
+                onClick={() => setShowCheckoutModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                رقم الهاتف <span className="text-red-500">* (ابحث بالرقم)</span>
+              </label>
+              <input
+                type="text"
+                dir="ltr"
+                placeholder="+965 ..."
+                className={field}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+              {isSearchingCustomer && <p className="text-xs text-purple-600 mt-1">جاري التحقق من رقم الهاتف...</p>}
+              {customerId && !isSearchingCustomer && (
+                <p className="text-xs text-green-600 font-medium mt-1">✓ عميل مسجل مسبقاً، تم جلب بياناته.</p>
+              )}
+              {isNewCustomer && phone.length >= 3 && (
+                <p className="text-xs text-amber-600 font-medium mt-1">⭐ رقم جديد: سيتم حفظه كعميل جديد تلقائياً.</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                اسم العميل <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="اسم العميل الثلاثي أو الرباعي"
+                className={field}
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">البيان / ملاحظات (العنوان، التركيب، التسليم)</label>
+              <textarea
+                rows={3}
+                className={field}
+                placeholder="اكتب تفاصيل العنوان أو التركيب أو التسليم..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={submit}
+                className="flex-1 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 disabled:opacity-50 transition"
+              >
+                {saving ? "جاري الحفظ وإصدار الفاتورة..." : `تأكيد ودفع (${fmt(total)} ${currency})`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCheckoutModal(false)}
+                className="px-4 py-3 border rounded-xl text-gray-600 hover:bg-gray-50 text-sm font-medium"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
