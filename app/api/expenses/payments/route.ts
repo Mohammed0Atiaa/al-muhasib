@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // إنشاء رقم مسلسل جديد لسند الصرف (مثال: PV-1001)
+    // إنشاء رقم مسلسل جديد لسند الصرف (مثال: PV-0001)
     const count = await prisma.paymentVoucher.count({
       where: { companyId },
     });
