@@ -103,9 +103,10 @@ export async function createCompany(input: unknown): Promise<Result> {
       await tx.warehouse.create({
         data: { companyId: c.id, branchId: branch.id, name: "المخزن الرئيسي" },
       });
-      await tx.account.createMany({
-        data: DEFAULT_ACCOUNTS.map((a) => ({ companyId: c.id, ...a })),
-      });
+     await tx.$executeRaw`
+        INSERT INTO "Account" ("id","companyId","code","name","type","nature","parentCode","isGroup")
+        SELECT gen_random_uuid()::text, ${c.id}::text, "code","name","type","nature","parentCode","isGroup"
+        FROM "AccountTemplate"`;
       await tx.membership.create({
         data: {
           companyId: c.id,
