@@ -31,7 +31,6 @@ export default function Sidebar({
   const [isCustomersOpen, setIsCustomersOpen] = useState(
     currentPath.startsWith("/customers")
   );
-  // حالة فتح وعرض قائمة الموظفين المنسدلة
   const [isTeamOpen, setIsTeamOpen] = useState(
     currentPath.startsWith("/dashboard/team")
   );
@@ -281,4 +280,22 @@ export default function Sidebar({
         {/* الإعدادات */}
         <Link
           href="/settings"
-          className={`flex items-center space-x-3
+          className={`flex items-center space-x-3 space-x-reverse py-2 px-3 rounded-lg text-sm ${
+            currentPath === "/settings"
+              ? "bg-purple-600 text-white font-semibold"
+              : "hover:bg-gray-800 text-gray-300"
+          }`}
+        >
+          <Settings className="w-5 h-5" />
+          <span>الإعدادات</span>
+        </Link>
+      </nav>
+
+      <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-700">
+        <div className="flex items-center justify-between">
+          <UserButton showUserInfo />
+        </div>
+      </div>
+    </div>
+  );
+}
