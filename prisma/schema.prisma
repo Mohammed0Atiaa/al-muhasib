@@ -121,6 +121,9 @@ model Account {
   companyId String
   code      String
   name      String
+nature     String  @default("DEBIT")
+  parentCode String?
+  isGroup    Boolean @default(false)
   type      String
   isActive  Boolean @default(true)
   company   Company @relation(fields: [companyId], references: [id])
@@ -349,4 +352,12 @@ model AuditLog {
 model PlatformAdmin {
   userId    String   @id
   createdAt DateTime @default(now())
+}
+model AccountTemplate {
+  code       String  @id
+  name       String
+  type       String
+  nature     String
+  parentCode String?
+  isGroup    Boolean @default(false)
 }
