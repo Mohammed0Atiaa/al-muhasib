@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-// البنود الافتراضية للمصروفات (ستُربط بشجرة الحسابات لاحقاً)
 const DEFAULT_EXPENSE_CATEGORIES = [
   { id: "rent", name: "إيجار" },
   { id: "salaries", name: "رواتب ومستحقات" },
@@ -37,7 +36,6 @@ export default function NewPaymentVoucherPage() {
     setError(null);
 
     try {
-      // إرسال البيانات للـ API لحفظ السند
       const res = await fetch("/api/expenses/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -56,7 +54,6 @@ export default function NewPaymentVoucherPage() {
         throw new Error(data.error || "حدث خطأ أثناء حفظ سند الصرف");
       }
 
-      // التوجيه المباشر لصفحة الاستعراض والطباعة بعد الحفظ
       router.push(`/expenses/payments/${data.id}?done=1`);
     } catch (err: any) {
       setError(err.message || "فشل الاتصال بالخادم");
@@ -68,7 +65,6 @@ export default function NewPaymentVoucherPage() {
   return (
     <main dir="rtl" className="mx-auto max-w-2xl p-4 md:p-6 my-8">
       <div className="bg-white border rounded-2xl shadow-sm p-6 space-y-6">
-        {/* رأس الصفحة */}
         <div className="flex justify-between items-center border-b pb-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900">إصدار سند صرف جديد</h1>
@@ -91,7 +87,6 @@ export default function NewPaymentVoucherPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* المستفيد / المصروف له */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
               المصروف له / الجهة المستفيدة <span className="text-red-500">*</span>
@@ -106,7 +101,6 @@ export default function NewPaymentVoucherPage() {
             />
           </div>
 
-          {/* بند المصروف + طريقة الدفع */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -136,14 +130,12 @@ export default function NewPaymentVoucherPage() {
               >
                 <option value="CASH">كاش (نقدي)</option>
                 <option value="KNET">كي نت (KNET)</option>
-
                 <option value="CARD">بطاقة ائتمانية</option>
                 <option value="TRANSFER">تحويل بنكي</option>
               </select>
             </div>
           </div>
 
-          {/* المبلغ */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
               المبلغ المصروف <span className="text-red-500">*</span>
@@ -159,21 +151,19 @@ export default function NewPaymentVoucherPage() {
             />
           </div>
 
-          {/* البيان / السبب */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
               البيان / سبب الصرف التفصيلي
             </label>
             <textarea
               rows={3}
-              placeholder="مثال: دفعة إيجار المحل لشهر أكتوبر 2026..."
+              placeholder="تفاصيل البيان هنا..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full rounded-xl border border-gray-300 p-2.5 text-sm focus:border-purple-600 focus:outline-none"
             />
           </div>
 
-          {/* زر الحفظ والتوليد */}
           <div className="pt-3">
             <button
               type="submit"
