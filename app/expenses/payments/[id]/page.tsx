@@ -3,10 +3,16 @@ import { getCurrentUser } from "@/lib/auth";
 import { getMembership } from "@/lib/company";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import PaymentActions from "@/components/payment-actions";
 
 export const dynamic = "force-dynamic";
 
-const METHOD: Record<string, string> = { CASH: "كاش", KNET: "كي نت", CARD: "بطاقة ائتمانية", TRANSFER: "تحويل بنكي" };
+const METHOD: Record<string, string> = {
+  CASH: "كاش",
+  KNET: "كي نت",
+  CARD: "بطاقة ائتمانية",
+  TRANSFER: "تحويل بنكي",
+};
 
 function getTafqeetText(amount: number, currencyCode: string) {
   const currencyLabel =
@@ -31,18 +37,17 @@ export default async function PaymentVoucherPage({
   const user = await getCurrentUser();
   const { companyId } = await getMembership(user.id);
 
-  // جلب بيانات الشركة وسند الصرف (سنتأكد من جاهزية الجدول لاحقاً أو استخدامه)
+  // جلب بيانات الشركة وسند الصرف
   const [company, payment] = await Promise.all([
     prisma.company.findUnique({ where: { id: companyId } }),
-    prisma.paymentVoucher?.findFirst?.({
+    prisma.paymentVoucher.findFirst({
       where: { id, companyId },
       include: { expenseCategory: true, user: true },
     }).catch(() => null),
   ]);
 
-  // إذا لم يكن الجدول منشأ بعد في قاعدة البيانات، سنقوم بإنشائه أو محاكاته مؤقتاً
   if (!payment) {
-    // سنقوم بتجهيز نموذج تجريبي أو توجيهك لإنشاء المودل في الـ Schema
+    notFound();
   }
 
   const fmtDateOnly = (d: Date) =>
@@ -53,6 +58,8 @@ export default async function PaymentVoucherPage({
       day: "2-digit",
     });
 
+  const currency = company?.currency || "KWD";
+
   return (
     <main dir="rtl" className="mx-auto max-w-3xl p-4 md:p-6 space-y-6 bg-white border rounded-xl shadow-sm my-6">
       {sp.done && (
@@ -61,19 +68,18 @@ export default async function PaymentVoucherPage({
         </div>
       )}
 
-      {/* أزرار التحكم والإجراءات (تخفى عند الطباعة) */}
+      {/* أزرار التحكم والإجراءات (طباعة، PDF، واتساب) */}
       <div className="flex justify-between items-center border-b pb-4 print:hidden">
-        <h1 className="text-xl font-bold text-gray-900">سند صرف جديد / استعراض</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => window.print()}
-            className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-bold text-white hover:bg-purple-700 transition"
-          >
-            🖨️ طباعة السند
-          </button>
+        <h1 className="text-xl font-bold text-gray-900">سند صرف</h1>
+        <div className="flex items-center gap-2">
+          <PaymentActions
+            paymentId={payment.id}
+            voucherNumber={payment.number}
+            amount={payment.amount}
+          />
           <Link
             href="/dashboard"
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
           >
             🏠 الرئيسية
           </Link>
@@ -84,11 +90,11 @@ export default async function PaymentVoucherPage({
       <div className="flex justify-between items-start border-b pb-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">{company?.name || "اسم الشركة"}</h2>
-          <p className="text-sm font-medium text-red-600 mt-1">سند صرف (Payment Voucher)</p>
+          <p className="text-sm font-medium text-purple-600 mt-1">سند صرف (Payment Voucher)</p>
         </div>
         <div className="text-left text-sm text-gray-600">
-          <p><span className="font-semibold text-gray-800">التاريخ:</span> {fmtDateOnly(new Date())}</p>
-          <p className="text-xs text-gray-500 mt-0.5">رقم السند: PV-1001</p>
+          <p><span className="font-semibold text-gray-800">التاريخ:</span> {fmtDateOnly(payment.createdAt)}</p>
+          <p className="text-xs text-gray-500 mt-0.5">رقم السند: {payment.number}</p>
         </div>
       </div>
 
@@ -96,26 +102,36 @@ export default async function PaymentVoucherPage({
       <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border text-sm">
         <div>
           <p className="text-xs text-gray-400">المصروف إليه / الجهة المستفيدة</p>
-          <p className="font-bold text-gray-800">اسم الموظف أو الجهة...</p>
+          <p className="font-bold text-gray-800">{payment.paidTo}</p>
         </div>
         <div>
           <p className="text-xs text-gray-400">بند المصروف (الحساب)</p>
-          <p className="font-bold text-purple-700">إيجار / رواتب / سلفة موظف...</p>
+          <p className="font-bold text-purple-700">
+            {payment.expenseCategory?.name || payment.expenseCategoryId || "عام"}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-400">طريقة الدفع</p>
+          <p className="font-bold text-gray-800">{METHOD[payment.method] || payment.method}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-400">بواسطة (المستخدم)</p>
+          <p className="font-bold text-gray-800">{payment.user?.name || "المحاسب"}</p>
         </div>
         <div className="col-span-2 border-t pt-2 mt-1">
           <p className="text-xs text-gray-400">البيان / سبب الصرف:</p>
-          <p className="text-sm text-gray-700 font-medium">تفاصيل البيان هنا...</p>
+          <p className="text-sm text-gray-700 font-medium">{payment.notes || "لا يوجد بيان"}</p>
         </div>
       </div>
 
       {/* المبلغ والتفقيط */}
       <div className="flex justify-between items-end border-t pt-4">
-        <div className="text-xs font-bold text-gray-600 bg-red-50 p-3 rounded-lg border border-red-100">
-          التفقيط: {getTafqeetText(0, "KWD")}
+        <div className="text-xs font-bold text-gray-600 bg-purple-50 p-3 rounded-lg border border-purple-100">
+          التفقيط: {getTafqeetText(payment.amount, currency)}
         </div>
         <div className="text-left space-y-1 text-sm">
-          <p className="text-lg font-bold text-red-700">
-            المبلغ الصافي: 0.000 دينار كويتي
+          <p className="text-lg font-bold text-purple-700">
+            المبلغ الصافي: {payment.amount.toFixed(currency === "EGP" ? 2 : 3)} {currency === "EGP" ? "جنيه" : "د.ك"}
           </p>
         </div>
       </div>
