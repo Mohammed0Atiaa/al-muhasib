@@ -1,5 +1,6 @@
 "use client";
 
+import ReportsNav from "@/components/reports-nav";
 import { useState } from "react";
 import { UserButton } from "@stackframe/stack";
 import {
@@ -198,7 +199,7 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* قسم إدارة الموظفين القابل للتنسدل (جديد) */}
+        {/* قسم إدارة الموظفين القابل للتنسدل */}
         <div>
           <button
             onClick={() => setIsTeamOpen(!isTeamOpen)}
@@ -248,6 +249,9 @@ export default function Sidebar({
           )}
         </div>
 
+        {/* قسم التقارير المالية المنسدل */}
+        <ReportsNav />
+
         {/* المخزون */}
         <Link
           href="/inventory"
@@ -277,22 +281,4 @@ export default function Sidebar({
         {/* الإعدادات */}
         <Link
           href="/settings"
-          className={`flex items-center space-x-3 space-x-reverse py-2 px-3 rounded-lg text-sm ${
-            currentPath === "/settings"
-              ? "bg-purple-600 text-white font-semibold"
-              : "hover:bg-gray-800 text-gray-300"
-          }`}
-        >
-          <Settings className="w-5 h-5" />
-          <span>الإعدادات</span>
-        </Link>
-      </nav>
-
-      <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-700">
-        <div className="flex items-center justify-between">
-          <UserButton showUserInfo />
-        </div>
-      </div>
-    </div>
-  );
-}
+          className={`flex items-center space-x-3
