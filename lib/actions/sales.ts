@@ -105,13 +105,16 @@ export async function createInvoice(input: unknown): Promise<Result> {
 
     const lines = data.items.map((i) => {
       const p = byId.get(i.productId)!;
+      const unitPrice = round(
+        data.currency === company.baseCurrency ? p.price : p.price.div(rate)
+      );
       return {
         productId: p.id,
         name: p.name,
         quantity: i.quantity,
-        unitPrice: D(i.unitPrice),
+        unitPrice,
         unitCost: p.costPrice,
-        lineTotal: round(D(i.unitPrice).mul(i.quantity)),
+        lineTotal: round(unitPrice.mul(i.quantity)),
       };
     });
 
