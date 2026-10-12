@@ -38,13 +38,13 @@ model Company {
   name         String
   baseCurrency String   @default("KWD")
   createdAt    DateTime @default(now())
-status      String    @default("ACTIVE")
-  country     String?
-  email       String?
-  phone       String?
-  address     String?
-  suspendedAt DateTime?
-  deletedAt   DateTime?
+  status       String   @default("ACTIVE")
+  country      String?
+  email        String?
+  phone        String?
+  address      String?
+  suspendedAt  DateTime?
+  deletedAt    DateTime?
   memberships   Membership[]
   branches      Branch[]
   warehouses    Warehouse[]
@@ -71,7 +71,6 @@ model Membership {
   @@unique([companyId, userId])
   @@index([userId])
 }
-
 
 model Branch {
   id        String  @id @default(cuid())
@@ -147,7 +146,6 @@ model Customer {
   @@index([companyId, name])
 }
 
-
 model WarehouseStock {
   id          String    @id @default(cuid())
   productId   String
@@ -171,14 +169,14 @@ model DocumentCounter {
 
   @@unique([companyId, branchId, docType])
 }
+
 model Invoice {
   id              String    @id @default(cuid())
   companyId       String
   branchId        String
   warehouseId     String
   customerId      String?
-  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Restrict)
-
+  customer        Customer? @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   number          String
   status          String    @default("POSTED")
@@ -197,9 +195,9 @@ model Invoice {
   voidedAt        DateTime?
   voidedByUserId  String?
   voidReason      String?
-shareToken      String?   @unique
-  items    InvoiceItem[]
-  payments Payment[]
+  shareToken      String?   @unique
+  items           InvoiceItem[]
+  payments        Payment[]
 
   @@unique([companyId, number])
   @@index([companyId, branchId, createdAt])
@@ -240,6 +238,7 @@ model ReceiptAllocation {
   @@index([receiptId])
   @@index([invoiceId])
 }
+
 model InvoiceItem {
   id            String  @id @default(cuid())
   invoiceId     String
@@ -266,6 +265,41 @@ model Payment {
 
   @@index([invoiceId])
 }
+
+// --- النماذج الجديدة المضافة خصيصاً لسندات الصرف والمصروفات ---
+
+model ExpenseCategory {
+  id              String           @id @default(cuid())
+  companyId       String
+  name            String
+  code            String?
+  createdAt       DateTime         @default(now())
+
+  paymentVouchers PaymentVoucher[]
+
+  @@unique([companyId, name])
+}
+
+model PaymentVoucher {
+  id                String           @id @default(cuid())
+  companyId         String
+  userId            String
+  number            String
+  paidTo            String
+  expenseCategoryId String?
+  amount            Decimal          @db.Decimal(18, 3)
+  method            String           @default("CASH")
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, number])
+  @@index([companyId, expenseCategoryId])
+}
+
+// ---------------------------------------------------------
 
 model JournalEntry {
   id              String   @id @default(cuid())
@@ -311,6 +345,7 @@ model AuditLog {
 
   @@index([companyId, entityType, entityId])
 }
+
 model PlatformAdmin {
   userId    String   @id
   createdAt DateTime @default(now())
