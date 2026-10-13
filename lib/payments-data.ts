@@ -4,12 +4,12 @@ export type CreatePaymentVoucherInput = {
   companyId: string;
   branchId?: string | null;
   entryDate: Date;
-  debitAccountId: string;   // expenseCategoryId (معرّف فئة المصروف في ExpenseCategory)
-  creditAccountId: string;  // method (مثل "CASH")
+  debitAccountId: string;   // expenseCategoryId أو كود حساب المصروف
+  creditAccountId: string;  // طريقة الدفع / كود الخزينة (مثل CASH)
   amount: number;
-  description: string;      // notes
-  createdByUserId: string;  // المستخدم المنشئ
-  paidTo: string;           // المستفيد
+  description: string;      
+  createdByUserId: string;  
+  paidTo: string;           
 };
 
 export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
@@ -27,10 +27,36 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
   const validUserId = createdByUserId || "system-user";
 
   return await prisma.$transaction(async (tx) => {
-    // 1. توليد رقم سند فريد آمن لجدول PaymentVoucher
+    // 1. البحث عن الحساب المدين والدائن لضمان وجودهما في شجرة الحسابات (Account)
+    let debitAcc = await tx.account.findFirst({
+      where: { companyId, OR: [{ id: debitAccountId }, { code: debitAccountId }] },
+    });
+
+    let creditAcc = await tx.account.findFirst({
+      where: { companyId, OR: [{ id: creditAccountId }, { code: creditAccountId }] },
+    });
+
+    // إذا لم يجد الحساب الممرر، يجلب أول حساب مصروفات/خزينة متاح للشركة منعاً للكرّاش
+    if (!debitAcc) {
+      debitAcc = await tx.account.findFirst({
+        where: { companyId, type: "EXPENSE", isGroup: false },
+      }) || await tx.account.findFirst({ where: { companyId, isGroup: false } });
+    }
+
+    if (!creditAcc) {
+      creditAcc = await tx.account.findFirst({
+        where: { companyId, type: "ASSET", isGroup: false },
+      }) || debitAcc;
+    }
+
+    if (!debitAcc || !creditAcc) {
+      throw new Error("لم يتم العثور على حسابات صالحة في شجرة الحسابات لربط القيد بها.");
+    }
+
+    // 2. توليد رقم سند فريد
     const voucherNumber = `PAY-${Date.now().toString().slice(-6)}`;
 
-    // 2. إنشاء القيد المحاسبي في JournalEntry (باستخدام createdByUserId المطابق للـ Schema)
+    // 3. إنشاء القيد المحاسبي باستخدام معرّفات الحسابات المضمونة
     const entry = await tx.journalEntry.create({
       data: {
         companyId,
@@ -38,18 +64,18 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
         entryDate,
         sourceType: "PAYMENT",
         description: description || "سند صرف",
-        createdByUserId: validUserId, // الاسم الصحيح بحسب الـ Schema
+        createdByUserId: validUserId,
         lines: {
           create: [
             // الطرف المدين (المصروف)
             {
-              accountId: debitAccountId,
+              accountId: debitAcc.id,
               debit: amount,
               credit: 0,
             },
-            // الطرف الدائن (طريقة الدفع / الصندوق)
+            // الطرف الدائن (الصندوق/البنك)
             {
-              accountId: creditAccountId,
+              accountId: creditAcc.id,
               debit: 0,
               credit: amount,
             },
@@ -58,7 +84,7 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
       },
     });
 
-    // 3. إنشاء سند الصرف في جدول PaymentVoucher (بالحقول الدقيقة للـ Schema)
+    // 4. إنشاء سند الصرف في PaymentVoucher
     const voucher = await tx.paymentVoucher.create({
       data: {
         companyId,
@@ -72,7 +98,7 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
       },
     });
 
-    // 4. ربط القيد بمعرف سند الصرف (sourceId) ليعمل رابط أحدث العمليات بكفاءة
+    // 5. ربط القيد بمعرف سند الصرف
     await tx.journalEntry.update({
       where: { id: entry.id },
       data: { sourceId: voucher.id },
