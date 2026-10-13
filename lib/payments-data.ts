@@ -4,15 +4,12 @@ export type CreatePaymentVoucherInput = {
   companyId: string;
   branchId?: string | null;
   entryDate: Date;
-  debitAccountId: string;   
-  creditAccountId: string;  
+  debitAccountId: string;   // expenseCategoryId (معرّف فئة المصروف في ExpenseCategory)
+  creditAccountId: string;  // method (مثل "CASH")
   amount: number;
-  currency?: string;
-  exchangeRate?: number;
-  description: string;      
-  referenceNumber?: string | null;
-  createdByUserId?: string | null;  
-  paidTo?: string;
+  description: string;      // notes
+  createdByUserId: string;  // المستخدم المنشئ
+  paidTo: string;           // المستفيد
 };
 
 export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
@@ -27,61 +24,55 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
     paidTo,
   } = input;
 
-  return await prisma.$transaction(async (tx: any) => {
-    // 1. التأكد من وجود معرف مستخدم صالح أو جلب أول مستخدم متاح في النظام لتفادي خطأ الـ undefined
-    let validUserId = createdByUserId;
-    if (!validUserId) {
-      const anyUser = await tx.user.findFirst({ select: { id: true } });
-      validUserId = anyUser ? anyUser.id : "system-user";
-    }
+  const validUserId = createdByUserId || "system-user";
 
-    // 2. توليد رقم سند فريد آمن يعتمد على الوقت
+  return await prisma.$transaction(async (tx) => {
+    // 1. توليد رقم سند فريد آمن لجدول PaymentVoucher
     const voucherNumber = `PAY-${Date.now().toString().slice(-6)}`;
 
-    // 3. إنشاء القيد المحاسبي المزدوج مع استخدام المعرف المضمون
+    // 2. إنشاء القيد المحاسبي في JournalEntry (باستخدام createdByUserId المطابق للـ Schema)
     const entry = await tx.journalEntry.create({
       data: {
         companyId,
+        branchId: input.branchId || null,
         entryDate,
         sourceType: "PAYMENT",
         description: description || "سند صرف",
-        userId: validUserId, 
+        createdByUserId: validUserId, // الاسم الصحيح بحسب الـ Schema
         lines: {
           create: [
+            // الطرف المدين (المصروف)
             {
               accountId: debitAccountId,
               debit: amount,
               credit: 0,
-              description: description || "سند صرف - مدين",
             },
+            // الطرف الدائن (طريقة الدفع / الصندوق)
             {
               accountId: creditAccountId,
               debit: 0,
               credit: amount,
-              description: description || "سند صرف - دائن",
             },
           ],
         },
       },
     });
 
-    // 4. حفظ سند الصرف في جدول المصروفات
-    const voucher = await tx.expense.create({
+    // 3. إنشاء سند الصرف في جدول PaymentVoucher (بالحقول الدقيقة للـ Schema)
+    const voucher = await tx.paymentVoucher.create({
       data: {
         companyId,
-        userId: validUserId, 
-        number: voucherNumber,   
-        paidTo: paidTo || description || "غير محدد", 
-        expenseCategoryId: debitAccountId,
+        userId: validUserId,
+        number: voucherNumber,
+        paidTo: paidTo || "غير محدد",
+        expenseCategoryId: debitAccountId || null,
         amount: amount,
-        method: creditAccountId,
-        notes: description,
-        createdAt: entryDate,
-        updatedAt: new Date(),
+        method: creditAccountId || "CASH",
+        notes: description || null,
       },
     });
 
-    // 5. ربط القيد بمعرف سند الصرف
+    // 4. ربط القيد بمعرف سند الصرف (sourceId) ليعمل رابط أحدث العمليات بكفاءة
     await tx.journalEntry.update({
       where: { id: entry.id },
       data: { sourceId: voucher.id },
