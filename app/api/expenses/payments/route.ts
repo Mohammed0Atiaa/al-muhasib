@@ -10,53 +10,39 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    console.log("=== PAYMENT VOUCHER BODY ===", JSON.stringify(body, null, 2));
+
+    // التقاط الحقول بالأسماء الصحيحة التي تأتي من واجهة المستخدم
+    const debitAccountId = body.expenseCategoryId || body.debitAccountId || body.accountId;
+    const creditAccountId = body.paymentMethod || body.creditAccountId || body.treasuryAccountId || body.cashAccountId;
     
-    // طباعة البيانات القادمة من الواجهة في الـ Terminal لتراناها بوضوح
-    console.log("=== DEBUG PAYMENT VOUCHER BODY ===", JSON.stringify(body, null, 2));
-
-    // التقاط الحقول باحتمالات أسمائها المختلفة كلياً لضمان عدم فشل الطلب
-    const debitAccountId = 
-      body.debitAccountId || 
-      body.expenseAccountId || 
-      body.accountId || 
-      body.categoryId || 
-      body.toAccountId;
-
-    const creditAccountId = 
-      body.creditAccountId || 
-      body.treasuryAccountId || 
-      body.cashAccountId || 
-      body.bankAccountId || 
-      body.fromAccountId;
-
-    const amount = Number(body.amount ?? body.total ?? body.value ?? 0);
+    const amount = Number(body.amount ?? 0);
     const currency = body.currency || ctx.baseCurrency;
     const exchangeRate = Number(body.exchangeRate ?? 1);
-    const description = body.description || body.notes || body.memo || "سند صرف";
-    const referenceNumber = body.referenceNumber || body.ref || body.number || null;
-    const entryDate = body.entryDate || body.date || body.createdAt;
+    
+    // دمج الملاحظات مع اسم المستفيد لضمان توثيق كامل
+    const paidTo = body.paidTo ? `إلى: ${body.paidTo}` : "";
+    const userNotes = body.notes || body.description || "";
+    const description = [paidTo, userNotes].filter(Boolean).join(" - ") || "سند صرف";
+    
+    const referenceNumber = body.referenceNumber || body.ref || null;
+    const entryDate = body.entryDate || body.date || new Date();
     const branchId = body.branchId;
 
     if (!debitAccountId) {
-      return NextResponse.json(
-        { error: `حقل حساب المصروف/المدين غير موجود. البيانات الواصلة: ${Object.keys(body).join(", ")}` }, 
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "يرجى اختيار فئة أو حساب المصروف" }, { status: 400 });
     }
     if (!creditAccountId) {
-      return NextResponse.json(
-        { error: `حقل الخزينة/البنك/الدائن غير موجود. البيانات الواصلة: ${Object.keys(body).join(", ")}` }, 
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "يرجى اختيار طريقة الدفع أو حساب الخزينة/البنك" }, { status: 400 });
     }
     if (!amount || amount <= 0) {
-      return NextResponse.json({ error: "المبلغ غير صحيح أو يساوي صفر" }, { status: 400 });
+      return NextResponse.json({ error: "يرجى إدخال مبلغ صحيح أكبر من الصفر" }, { status: 400 });
     }
 
     const result = await createPaymentVoucher({
       companyId: ctx.companyId,
       branchId: branchId || ctx.forcedBranchId || null,
-      entryDate: entryDate ? new Date(entryDate) : new Date(),
+      entryDate: new Date(entryDate),
       debitAccountId,
       creditAccountId,
       amount,
