@@ -1,256 +1,273 @@
-import ProductsChart from "@/components/products-chart";
+import Link from "next/link";
+import { Landmark, Package, TrendingUp, Wallet } from "lucide-react";
 import Sidebar from "@/components/sidebar";
-import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { TrendingUp } from "lucide-react";
+import KpiCard, { Stat } from "@/components/dashboard/kpi-card";
+import DateFilter from "@/components/dashboard/date-filter";
+import RecentActivity from "@/components/dashboard/recent-activity";
+import { RevenueExpenseChart, Sparkline } from "@/components/dashboard/charts";
+import { getReportContext } from "@/lib/reports";
+import { loadDashboard } from "@/lib/dashboard-data";
+import {
+  first,
+  fmtNum,
+  isValidYmd,
+  monthStart,
+  qs,
+  todayInTz,
+  yearStart,
+} from "@/lib/report-utils";
 
-export default async function DashboardPage() {
-  const user = await getCurrentUser();
-  const userId = user.id;
+export const dynamic = "force-dynamic";
 
-  const [totalProducts, lowStock, allProducts] = await Promise.all([
-    prisma.product.count({ where: { userId } }),
-    prisma.product.count({
-      where: {
-        userId,
-        lowStockAt: { not: null },
-        quantity: { lte: 5 },
-      },
-    }),
-    prisma.product.findMany({
-      where: { userId },
-      select: { price: true, quantity: true, createdAt: true },
-    }),
-  ]);
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const ctx = await getReportContext();
+  const dec = ctx.decimals;
+  const cur = ctx.baseCurrency;
+  const f = (v: number) => fmtNum(v, dec);
+  const today = todayInTz(ctx.tz);
 
-  const totalValue = allProducts.reduce(
-    (sum, product) => sum + Number(product.price) * Number(product.quantity),
-    0
-  );
+  const fromRaw = first(sp.from);
+  const toRaw = first(sp.to);
+  let from: string = isValidYmd(fromRaw) ? fromRaw : monthStart(today);
+  let to: string = isValidYmd(toRaw) ? toRaw : today;
+  if (from > to) [from, to] = [to, from];
 
-  const inStockCount = allProducts.filter((p) => Number(p.quantity) > 5).length;
-  const lowStockCount = allProducts.filter(
-    (p) => Number(p.quantity) <= 5 && Number(p.quantity) >= 1
-  ).length;
-  const outOfStockCount = allProducts.filter(
-    (p) => Number(p.quantity) === 0
-  ).length;
+  const branchParam = first(sp.branch);
+  const branchId =
+    ctx.forcedBranchId ??
+    (ctx.branches.some((b) => b.id === branchParam) ? (branchParam as string) : "");
 
-  const inStockPercentage =
-    totalProducts > 0 ? Math.round((inStockCount / totalProducts) * 100) : 0;
-  const lowStockPercentage =
-    totalProducts > 0 ? Math.round((lowStockCount / totalProducts) * 100) : 0;
-  const outOfStockPercentage =
-    totalProducts > 0 ? Math.round((outOfStockCount / totalProducts) * 100) : 0;
+  const showFinance = ctx.allowed;
+  const data = await loadDashboard({ ctx, from, to, branchId, finance: showFinance });
+  const { inventory, sales, finance: fin, recent } = data;
 
-  const now = new Date();
-  const weeklyProductsData = [];
+  const branchQ = branchId || undefined;
+  const presets = [
+    {
+      key: "today" as const,
+      label: "اليوم",
+      href: `/dashboard${qs({ from: today, to: today, branch: branchQ })}`,
+    },
+    {
+      key: "month" as const,
+      label: "هذا الشهر",
+      href: `/dashboard${qs({ from: monthStart(today), to: today, branch: branchQ })}`,
+    },
+    {
+      key: "year" as const,
+      label: "هذا العام",
+      href: `/dashboard${qs({ from: yearStart(today), to: today, branch: branchQ })}`,
+    },
+  ];
+  const active: "today" | "month" | "year" | "custom" =
+    from === today && to === today
+      ? "today"
+      : from === monthStart(today) && to === today
+      ? "month"
+      : from === yearStart(today) && to === today
+      ? "year"
+      : "custom";
 
-  for (let i = 11; i >= 0; i--) {
-    const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - i * 7);
-    weekStart.setHours(0, 0, 0, 0);
-
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    weekStart.setHours(23, 59, 59, 999);
-
-    const weekLabel = `${String(weekStart.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}/${String(weekStart.getDate() + 1).padStart(2, "0")}`;
-
-    const weekProducts = allProducts.filter((product) => {
-      const productDate = new Date(product.createdAt);
-      return productDate >= weekStart && productDate <= weekEnd;
-    });
-
-    weeklyProductsData.push({
-      week: weekLabel,
-      products: weekProducts.length,
-    });
-  }
-
-  const recent = await prisma.product.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-  });
-
-  console.log(totalValue);
+  const periodQ = qs({ from, to, branch: branchQ });
+  const branchLabel = branchId
+    ? ctx.branches.find((b) => b.id === branchId)?.name ?? ""
+    : "كل الفروع";
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Sidebar currentPath="/dashboard" />
-      <main className="ml-64 p-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+      <main dir="rtl" className="ml-64 p-4 md:p-8">
+        <div className="mx-auto max-w-7xl space-y-6">
+          {/* الترويسة */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
-                Dashboard
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900">لوحة التحكم</h1>
               <p className="text-sm text-gray-500">
-                Welcome back! Here is an overview of your inventory.
+                {ctx.companyName} — {branchLabel} — الفترة: من {from} إلى {to}
               </p>
             </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Key Metrics */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">
-              Key Metrics
-            </h2>
-            <div className="grid grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">
-                  {totalProducts}
-                </div>
-                <div className="text-sm text-gray-600">Total Products</div>
-                <div className="flex items-center justify-center mt-1">
-                  <span className="text-xs text-green-600">
-                    +{totalProducts}
-                  </span>
-                  <TrendingUp className="w-3 h-3 text-green-600 ml-1" />
-                </div>
-              </div>
-
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">
-                  ${Number(totalValue).toFixed(0)}
-                </div>
-                <div className="text-sm text-gray-600">Total Value</div>
-                <div className="flex items-center justify-center mt-1">
-                  <span className="text-xs text-green-600">
-                    +${Number(totalValue).toFixed(0)}
-                  </span>
-                  <TrendingUp className="w-3 h-3 text-green-600 ml-1" />
-                </div>
-              </div>
-
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">
-                  {lowStock}
-                </div>
-                <div className="text-sm text-gray-600">Low Stock</div>
-                <div className="flex items-center justify-center mt-1">
-                  <span className="text-xs text-green-600">+{lowStock}</span>
-                  <TrendingUp className="w-3 h-3 text-green-600 ml-1" />
-                </div>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/sales/new"
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white"
+              >
+                + فاتورة جديدة
+              </Link>
+              <Link
+                href="/customers/receipts/new"
+                className="rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700"
+              >
+                + سند قبض
+              </Link>
             </div>
           </div>
 
-          {/* Iventory over time */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2>New products per week</h2>
-            </div>
-            <div className="h-48">
-              <ProductsChart data={weeklyProductsData} />
-            </div>
-          </div>
-        </div>
+          {/* فلتر الفترة */}
+          <DateFilter
+            from={from}
+            to={to}
+            branchId={branchId}
+            branches={ctx.branches}
+            active={active}
+            presets={presets}
+          />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Stock Levels */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Stock Levels
-              </h2>
-            </div>
-            <div className="space-y-3">
-              {recent.map((product, key) => {
-                const stockLevel =
-                  product.quantity === 0
-                    ? 0
-                    : product.quantity <= (product.lowStockAt || 5)
-                    ? 1
-                    : 2;
+          {/* البطاقات الأربع */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {/* المخزون */}
+            <KpiCard
+              title="المخزون"
+              icon={<Package className="h-5 w-5" />}
+              accent="bg-amber-100 text-amber-700"
+              href="/inventory"
+              linkLabel="فتح المخزون"
+            >
+              <Stat
+                label="قيمة المخزون (بالتكلفة)"
+                value={f(inventory.costValue)}
+                unit={cur}
+                sub={`بسعر البيع: ${f(inventory.retailValue)}`}
+                hint={
+                  inventory.noCost > 0
+                    ? `${inventory.noCost} منتج بدون سعر تكلفة، فالقيمة بالتكلفة غير مكتملة`
+                    : undefined
+                }
+              />
+              <Stat
+                label="عدد المنتجات"
+                value={String(inventory.products)}
+                sub={`إجمالي الوحدات: ${inventory.units.toLocaleString("en-US")}`}
+              />
+              <Stat
+                label="أصناف منخفضة المخزون"
+                value={String(inventory.lowStock)}
+                tone={inventory.lowStock > 0 ? "bad" : "default"}
+                sub={`منها نافد: ${inventory.outOfStock}`}
+              />
+              <p className="text-[11px] text-gray-400">أرقام المخزون لحظية ولا تتأثر بالفترة.</p>
+            </KpiCard>
 
-                const bgColors = [
-                  "bg-red-600",
-                  "bg-yellow-600",
-                  "bg-green-600",
-                ];
-                const textColors = [
-                  "text-red-600",
-                  "text-yellow-600",
-                  "text-green-600",
-                ];
-                return (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div
-                        className={`w-3 h-3 rounded-full ${bgColors[stockLevel]}`}
-                      />
-                      <span className="text-sm font-medium text-gray-900">
-                        {product.name}
-                      </span>
-                    </div>
-                    <div
-                      className={`text-sm font-medium ${textColors[stockLevel]}`}
-                    >
-                      {product.quantity} units
-                    </div>
+            {/* المبيعات */}
+            <KpiCard
+              title="المبيعات والإيرادات"
+              icon={<TrendingUp className="h-5 w-5" />}
+              accent="bg-purple-100 text-purple-700"
+              href="/sales"
+              linkLabel="فتح الفواتير"
+            >
+              <Stat label="إجمالي مبيعات الفترة" value={f(sales.total)} unit={cur} />
+              <Sparkline data={sales.series} decimals={dec} currency={cur} />
+              <div className="grid grid-cols-2 gap-3">
+                <Stat label="عدد الفواتير" value={String(sales.count)} />
+                <Stat label="متوسط الفاتورة" value={f(sales.avg)} unit={cur} />
+              </div>
+              <Stat
+                label="فواتير آجلة مفتوحة"
+                value={String(sales.openCredit)}
+                tone={sales.openCredit > 0 ? "warn" : "default"}
+              />
+            </KpiCard>
+
+            {/* المصروفات */}
+            {fin && (
+              <KpiCard
+                title="المصروفات وسندات الصرف"
+                icon={<Wallet className="h-5 w-5" />}
+                accent="bg-red-100 text-red-700"
+                href={`/reports/income-statement${periodQ}`}
+                linkLabel="قائمة الدخل"
+              >
+                <Stat label="إجمالي المصروفات" value={f(fin.expenses)} unit={cur} />
+                <div className="space-y-1 rounded-lg bg-gray-50 p-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">مصروفات تشغيلية</span>
+                    <span className="font-semibold tabular-nums">{f(fin.opex)}</span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Efficiency */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Efficiency
-              </h2>
-            </div>
-            <div className="flex items-center justify-center">
-              <div className="relative w-48 h-48">
-                <div className="absolute inset-0 rounded-full border-8 border-gray-200"></div>
-                <div
-                  className="absolute inset-0 rounded-full border-8 border-purple-600"
-                  style={{
-                    clipPath:
-                      "polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%)",
-                  }}
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">تكلفة المبيعات</span>
+                    <span className="font-semibold tabular-nums">{f(fin.cogs)}</span>
+                  </div>
+                </div>
+                <Stat
+                  label={fin.net >= 0 ? "صافي الربح" : "صافي الخسارة"}
+                  value={f(Math.abs(fin.net))}
+                  unit={cur}
+                  tone={fin.net >= 0 ? "good" : "bad"}
                 />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {inStockPercentage}%
-                    </div>
-                    <div className="text-sm text-gray-600">In Stock</div>
+                <Stat label="سندات الصرف في الفترة" value={String(fin.paymentCount)} />
+              </KpiCard>
+            )}
+
+            {/* الحسابات والذمم */}
+            {fin && (
+              <KpiCard
+                title="الحسابات والذمم المالية"
+                icon={<Landmark className="h-5 w-5" />}
+                accent="bg-blue-100 text-blue-700"
+                href={`/reports/trial-balance${periodQ}`}
+                linkLabel="ميزان المراجعة"
+              >
+                <Stat
+                  label="النقدية والبنوك"
+                  value={f(fin.cashTotal)}
+                  unit={cur}
+                  sub={`حتى ${to}`}
+                />
+                {fin.cashLines.length > 0 && (
+                  <div className="space-y-1 rounded-lg bg-gray-50 p-2 text-xs">
+                    {fin.cashLines.slice(0, 4).map((l) => (
+                      <div key={l.code} className="flex justify-between gap-2">
+                        <span className="truncate text-gray-500">{l.name}</span>
+                        <span className="font-semibold tabular-nums">{f(l.balance)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Stat
+                  label="ذمم العملاء المستحقة"
+                  value={f(fin.receivables)}
+                  unit={cur}
+                  tone={fin.receivables > 0 ? "warn" : "default"}
+                  sub={`حتى ${to}`}
+                />
+              </KpiCard>
+            )}
+          </div>
+
+          {/* الرسم البياني + أحدث العمليات */}
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            {fin && (
+              <div className="rounded-2xl border bg-white shadow-sm xl:col-span-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+                  <h3 className="font-bold text-gray-900">الإيرادات مقابل المصروفات</h3>
+                  <div className="flex flex-wrap gap-4 text-xs">
+                    <span className="text-green-700">
+                      الإيرادات: <b className="tabular-nums">{f(fin.revenue)}</b>
+                    </span>
+                    <span className="text-red-600">
+                      المصروفات: <b className="tabular-nums">{f(fin.expenses)}</b>
+                    </span>
+                    <span className={fin.net >= 0 ? "text-purple-700" : "text-red-600"}>
+                      الصافي: <b className="tabular-nums">{f(fin.net)}</b> {cur}
+                    </span>
                   </div>
                 </div>
-              </div>
-            </div>
-            <div className="mt-6 space-y-2">
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-200" />
-                  <span>In Stock ({inStockPercentage}%)</span>
+                <div className="p-4">
+                  <RevenueExpenseChart data={fin.chart} decimals={dec} currency={cur} />
+                  <p className="mt-2 text-[11px] text-gray-400">
+                    المصروفات هنا شاملة تكلفة المبيعات، فالصافي يطابق قائمة الدخل.
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-600" />
-                  <span>Low Stock ({lowStockPercentage}%)</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 rounded-full bg-gray-200" />
-                  <span>Out of Stock ({outOfStockPercentage}%)</span>
-                </div>
-              </div>
+            )}
+
+            <div className={fin ? "xl:col-span-1" : "xl:col-span-3"}>
+              <RecentActivity items={recent} dec={dec} currency={cur} />
             </div>
           </div>
         </div>
