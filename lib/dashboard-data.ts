@@ -404,7 +404,7 @@ export async function loadDashboard(opts: {
         voided: !!p.voided,
         at: p.entryDate.getTime(),
         atLabel: label(p.entryDate),
-        href: p.sourceId ? `/payments/${p.sourceId}` : "#",
+        href: p.sourceId ? `/expenses/payments/${p.sourceId}` : "#",
       })
     ),
   ]
