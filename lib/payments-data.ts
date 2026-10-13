@@ -1,94 +1,82 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 
 export type CreatePaymentVoucherInput = {
   companyId: string;
   branchId?: string | null;
   entryDate: Date;
-  debitAccountId: string;   
-  creditAccountId: string;  
+  debitAccountId: string;   // expenseCategoryId
+  creditAccountId: string;  // method
   amount: number;
-  currency: string;
-  exchangeRate: number;
-  description: string;
+  currency?: string;
+  exchangeRate?: number;
+  description: string;      // notes / paidTo
   referenceNumber?: string | null;
-  createdByUserId?: string | null;
+  createdByUserId: string;  // userId
+  paidTo?: string;
 };
 
 export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
   const {
     companyId,
-    branchId,
     entryDate,
     debitAccountId,
     creditAccountId,
     amount,
-    currency,
-    exchangeRate,
     description,
-    referenceNumber,
     createdByUserId,
+    paidTo,
   } = input;
 
-  const baseAmount = Number((amount * exchangeRate).toFixed(4));
-
   return await prisma.$transaction(async (tx) => {
-    // 1. تجهيز بيانات القيد المحاسبي مع استخدام createdById الصحيح إن توفر
-    const entryData: Prisma.JournalEntryCreateInput = {
-      companyId,
-      branchId: branchId || null,
-      entryDate,
-      sourceType: "PAYMENT",
-      description: description || "سند صرف",
-      referenceNumber: referenceNumber || null,
-      ...(createdByUserId ? { createdBy: { connect: { id: createdByUserId } } } : {}),
-      lines: {
-        create: [
-          {
-            accountId: debitAccountId,
-            debit: baseAmount,
-            credit: 0,
-            description: description || "سند صرف - مدين",
-          },
-          {
-            accountId: creditAccountId,
-            debit: 0,
-            credit: baseAmount,
-            description: description || "سند صرف - دائن",
-          },
-        ],
-      },
-    };
+    // 1. توليد رقم السند تلقائياً لضمان عدم حدوث خطأ في حقل number الإلزامي
+    const count = await tx.expense.count({ where: { companyId } });
+    const voucherNumber = `PAY-${String(count + 1).padStart(5, "0")}`;
 
+    // 2. إنشاء القيد المحاسبي المزدوج في شجرة الحسابات والداشبورد
     const entry = await tx.journalEntry.create({
-      data: entryData,
-      include: {
-        lines: true,
+      data: {
+        companyId,
+        entryDate,
+        sourceType: "PAYMENT",
+        description: description || "سند صرف",
+        lines: {
+          create: [
+            // الطرف المدين (المصروف)
+            {
+              accountId: debitAccountId,
+              debit: amount,
+              credit: 0,
+              description: description || "سند صرف - مدين",
+            },
+            // الطرف الدائن (الخزينة / البنك)
+            {
+              accountId: creditAccountId,
+              debit: 0,
+              credit: amount,
+              description: description || "سند صرف - دائن",
+            },
+          ],
+        },
       },
     });
 
-    // 2. تجهيز بيانات سند الصرف
-    const voucherData: Prisma.PaymentVoucherUncheckedCreateInput = {
-      companyId,
-      branchId: branchId || null,
-      journalEntryId: entry.id,
-      entryDate,
-      debitAccountId,
-      creditAccountId,
-      amount,
-      currency,
-      exchangeRate,
-      baseAmount,
-      description,
-      referenceNumber: referenceNumber || null,
-      ...(createdByUserId ? { createdById: createdByUserId } : {}),
-    };
-
-    const voucher = await tx.paymentVoucher.create({
-      data: voucherData,
+    // 3. حفظ سند الصرف بالأسماء الدقيقة لمطابقة جدول قاعدة البيانات
+    const voucher = await tx.expense.create({
+      data: {
+        companyId,
+        userId: createdByUserId, // الاسم الصحيح للحقل في الجدول
+        number: voucherNumber,   // الحقل الإلزامي رقم السند
+        paidTo: paidTo || "غير محدد", // الحقل الإلزامي اسم المستفيد
+        expenseCategoryId: debitAccountId,
+        amount: amount,
+        method: creditAccountId,
+        notes: description,
+        createdAt: entryDate,
+        updatedAt: new Date(),
+      },
     });
 
-    // 3. ربط القيد بمعرف سند الصرف
+    // 4. ربط القيد بمعرف سند الصرف
     await tx.journalEntry.update({
       where: { id: entry.id },
       data: { sourceId: voucher.id },
