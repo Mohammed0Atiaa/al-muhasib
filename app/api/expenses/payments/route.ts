@@ -10,23 +10,47 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const {
-      debitAccountId,
-      creditAccountId,
-      amount,
-      currency,
-      exchangeRate,
-      description,
-      referenceNumber,
-      entryDate,
-      branchId,
-    } = body;
+    
+    // طباعة البيانات القادمة من الواجهة في الـ Terminal لتراناها بوضوح
+    console.log("=== DEBUG PAYMENT VOUCHER BODY ===", JSON.stringify(body, null, 2));
 
-    if (!debitAccountId || !creditAccountId || !amount || Number(amount) <= 0) {
+    // التقاط الحقول باحتمالات أسمائها المختلفة كلياً لضمان عدم فشل الطلب
+    const debitAccountId = 
+      body.debitAccountId || 
+      body.expenseAccountId || 
+      body.accountId || 
+      body.categoryId || 
+      body.toAccountId;
+
+    const creditAccountId = 
+      body.creditAccountId || 
+      body.treasuryAccountId || 
+      body.cashAccountId || 
+      body.bankAccountId || 
+      body.fromAccountId;
+
+    const amount = Number(body.amount ?? body.total ?? body.value ?? 0);
+    const currency = body.currency || ctx.baseCurrency;
+    const exchangeRate = Number(body.exchangeRate ?? 1);
+    const description = body.description || body.notes || body.memo || "سند صرف";
+    const referenceNumber = body.referenceNumber || body.ref || body.number || null;
+    const entryDate = body.entryDate || body.date || body.createdAt;
+    const branchId = body.branchId;
+
+    if (!debitAccountId) {
       return NextResponse.json(
-        { error: "يرجى تحديد حساب الصرف، حساب الخزينة/البنك، والمبلغ بشكل صحيح" },
+        { error: `حقل حساب المصروف/المدين غير موجود. البيانات الواصلة: ${Object.keys(body).join(", ")}` }, 
         { status: 400 }
       );
+    }
+    if (!creditAccountId) {
+      return NextResponse.json(
+        { error: `حقل الخزينة/البنك/الدائن غير موجود. البيانات الواصلة: ${Object.keys(body).join(", ")}` }, 
+        { status: 400 }
+      );
+    }
+    if (!amount || amount <= 0) {
+      return NextResponse.json({ error: "المبلغ غير صحيح أو يساوي صفر" }, { status: 400 });
     }
 
     const result = await createPaymentVoucher({
@@ -35,11 +59,11 @@ export async function POST(req: Request) {
       entryDate: entryDate ? new Date(entryDate) : new Date(),
       debitAccountId,
       creditAccountId,
-      amount: Number(amount),
-      currency: currency || ctx.baseCurrency,
-      exchangeRate: Number(exchangeRate || 1),
-      description: description || "سند صرف",
-      referenceNumber: referenceNumber || null,
+      amount,
+      currency,
+      exchangeRate,
+      description,
+      referenceNumber,
       createdByUserId: ctx.userId,
     });
 
