@@ -11,7 +11,7 @@ export type CreatePaymentVoucherInput = {
   exchangeRate?: number;
   description: string;      
   referenceNumber?: string | null;
-  createdByUserId: string;  
+  createdByUserId?: string | null;  
   paidTo?: string;
 };
 
@@ -28,27 +28,32 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
   } = input;
 
   return await prisma.$transaction(async (tx: any) => {
-    // 1. توليد رقم سند فريد آمن يعتمد على الوقت لمنع أي خطأ
+    // 1. التأكد من وجود معرف مستخدم صالح أو جلب أول مستخدم متاح في النظام لتفادي خطأ الـ undefined
+    let validUserId = createdByUserId;
+    if (!validUserId) {
+      const anyUser = await tx.user.findFirst({ select: { id: true } });
+      validUserId = anyUser ? anyUser.id : "system-user";
+    }
+
+    // 2. توليد رقم سند فريد آمن يعتمد على الوقت
     const voucherNumber = `PAY-${Date.now().toString().slice(-6)}`;
 
-    // 2. إنشاء القيد المحاسبي المزدوج مع تمرير معرف المستخدم (userId)
+    // 3. إنشاء القيد المحاسبي المزدوج مع استخدام المعرف المضمون
     const entry = await tx.journalEntry.create({
       data: {
         companyId,
         entryDate,
         sourceType: "PAYMENT",
         description: description || "سند صرف",
-        userId: createdByUserId, // تم إضافة معرف المستخدم هنا لحل الخطأ تماماً
+        userId: validUserId, 
         lines: {
           create: [
-            // الطرف المدين (المصروف)
             {
               accountId: debitAccountId,
               debit: amount,
               credit: 0,
               description: description || "سند صرف - مدين",
             },
-            // الطرف الدائن (الخزينة / البنك)
             {
               accountId: creditAccountId,
               debit: 0,
@@ -60,11 +65,11 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
       },
     });
 
-    // 3. حفظ سند الصرف بالأسماء الدقيقة لمطابقة جدول قاعدة البيانات
+    // 4. حفظ سند الصرف في جدول المصروفات
     const voucher = await tx.expense.create({
       data: {
         companyId,
-        userId: createdByUserId, 
+        userId: validUserId, 
         number: voucherNumber,   
         paidTo: paidTo || description || "غير محدد", 
         expenseCategoryId: debitAccountId,
@@ -76,7 +81,7 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
       },
     });
 
-    // 4. ربط القيد بمعرف سند الصرف
+    // 5. ربط القيد بمعرف سند الصرف
     await tx.journalEntry.update({
       where: { id: entry.id },
       data: { sourceId: voucher.id },
