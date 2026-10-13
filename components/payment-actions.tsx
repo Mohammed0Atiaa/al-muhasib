@@ -1,57 +1,69 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 
 interface PaymentActionsProps {
   paymentId: string;
-  phoneNumber?: string; // رقم هاتف المستفيد إن وجد للإرسال
   voucherNumber?: string;
   amount?: number;
 }
 
 export default function PaymentActions({
   paymentId,
-  phoneNumber = "",
   voucherNumber = "",
   amount = 0,
 }: PaymentActionsProps) {
-  // إجراء الطباعة
-  const handlePrint = () => {
-    window.print();
-  };
+  const btn = "rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 transition";
 
-  // إجراء إرسال واتساب
+  // إجراء إرسال واتساب برابط السند والتفاصيل مثل بقية النظام
   const handleWhatsAppShare = () => {
     const currentUrl = window.location.href;
-    const message = `مرحباً، تم إصدار سند صرف رقم (${voucherNumber}) بمبلغ (${amount}) د.ك.\nيمكنك معاينة السند عبر الرابط التالي:\n${currentUrl}`;
+    const message = `مرحباً، تم إصدار سند صرف رقم (${voucherNumber}) بمبلغ (${amount}).\nيمكنك معاينة السند عبر الرابط التالي:\n${currentUrl}`;
     const encodedMessage = encodeURIComponent(message);
-    
-    // إذا كان هناك رقم هاتف مضاف نرسل له مباشرة، وإلا نفتح الواتساب لاختيار جهة الاتصال
-    const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
-    const whatsappUrl = cleanPhone
-      ? `https://wa.me/${cleanPhone}?text=${encodedMessage}`
-      : `https://wa.me/?text=${encodedMessage}`;
-
+    const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
     window.open(whatsappUrl, "_blank");
   };
 
   return (
-    <div className="flex flex-wrap gap-2 print:hidden">
-      {/* زر الطباعة وتنزيل PDF */}
-      <button
-        onClick={handlePrint}
-        className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-purple-700 transition"
+    <div className="flex flex-wrap items-center gap-2 print:hidden">
+      {/* زر الطباعة المباشر بنفس نمط سند القبض والفواتير */}
+      <a
+        href={`/expenses/payments/${paymentId}/print?auto=1`}
+        target="_blank"
+        className={btn}
       >
-        🖨️ طباعة / تنزيل PDF
-      </button>
+        طباعة
+      </a>
+
+      {/* زر تحميل PDF */}
+      <a
+        href={`/expenses/payments/${paymentId}/print?auto=1&pdf=1`}
+        target="_blank"
+        className={btn}
+      >
+        تحميل PDF
+      </a>
 
       {/* زر إرسال واتساب */}
       <button
+        type="button"
         onClick={handleWhatsAppShare}
-        className="flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-green-700 transition"
+        className={`${btn} border-green-600 text-green-700 hover:bg-green-50`}
       >
-        📲 إرسال عبر واتساب
+        إرسال واتساب
       </button>
+
+      {/* أزرار التنقل السريعة للإلغاء والعودة أو الإصدار الجديد */}
+      <Link
+        href="/expenses/payments/new"
+        className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 transition"
+      >
+        سند جديد
+      </Link>
+      <Link href="/dashboard" className={btn}>
+        الرئيسية
+      </Link>
     </div>
   );
 }
