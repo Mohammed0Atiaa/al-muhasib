@@ -54,7 +54,14 @@ export default function NewPaymentVoucherPage() {
         throw new Error(data.error || "حدث خطأ أثناء حفظ سند الصرف");
       }
 
-      router.push(`/expenses/payments/${data.id}?done=1`);
+      // استخراج المعرّف بدقة سواء كان داخل voucher أو كقيمة مباشرة منعاً للـ 404
+      const voucherId = data.voucher?.id || data.id;
+
+      if (!voucherId) {
+        throw new Error("لم يتم استرجاع رقم السند بنجاح من الخادم");
+      }
+
+      router.push(`/expenses/payments/${voucherId}?done=1`);
     } catch (err: any) {
       setError(err.message || "فشل الاتصال بالخادم");
     } finally {
