@@ -4,14 +4,14 @@ export type CreatePaymentVoucherInput = {
   companyId: string;
   branchId?: string | null;
   entryDate: Date;
-  debitAccountId: string;   // expenseCategoryId
-  creditAccountId: string;  // method
+  debitAccountId: string;   
+  creditAccountId: string;  
   amount: number;
   currency?: string;
   exchangeRate?: number;
-  description: string;      // notes / paidTo
+  description: string;      
   referenceNumber?: string | null;
-  createdByUserId: string;  // userId
+  createdByUserId: string;  
   paidTo?: string;
 };
 
@@ -31,13 +31,14 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
     // 1. توليد رقم سند فريد آمن يعتمد على الوقت لمنع أي خطأ
     const voucherNumber = `PAY-${Date.now().toString().slice(-6)}`;
 
-    // 2. إنشاء القيد المحاسبي المزدوج في شجرة الحسابات والداشبورد
+    // 2. إنشاء القيد المحاسبي المزدوج مع تمرير معرف المستخدم (userId)
     const entry = await tx.journalEntry.create({
       data: {
         companyId,
         entryDate,
         sourceType: "PAYMENT",
         description: description || "سند صرف",
+        userId: createdByUserId, // تم إضافة معرف المستخدم هنا لحل الخطأ تماماً
         lines: {
           create: [
             // الطرف المدين (المصروف)
