@@ -12,7 +12,7 @@ export type CreatePaymentVoucherInput = {
   exchangeRate: number;
   description: string;
   referenceNumber?: string | null;
-  createdByUserId?: string | null; // جعلناه اختيارياً لمنع خطأ الـ undefined
+  createdByUserId?: string | null;
 };
 
 export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
@@ -33,14 +33,15 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
   const baseAmount = Number((amount * exchangeRate).toFixed(4));
 
   return await prisma.$transaction(async (tx) => {
-    // 1. توليد القيد المحاسبي الرئيسي مع التعامل الآمن مع معرف المستخدم
-    const entryData: any = {
+    // 1. تجهيز بيانات القيد المحاسبي مع استخدام createdById الصحيح إن توفر
+    const entryData: Prisma.JournalEntryCreateInput = {
       companyId,
       branchId: branchId || null,
       entryDate,
       sourceType: "PAYMENT",
       description: description || "سند صرف",
       referenceNumber: referenceNumber || null,
+      ...(createdByUserId ? { createdBy: { connect: { id: createdByUserId } } } : {}),
       lines: {
         create: [
           {
@@ -59,10 +60,6 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
       },
     };
 
-    if (createdByUserId) {
-      entryData.createdById = createdByUserId;
-    }
-
     const entry = await tx.journalEntry.create({
       data: entryData,
       include: {
@@ -70,8 +67,8 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
       },
     });
 
-    // 2. إنشاء سجّل سند الصرف مع ربطه بمعرف القيد
-    const voucherData: any = {
+    // 2. تجهيز بيانات سند الصرف
+    const voucherData: Prisma.PaymentVoucherUncheckedCreateInput = {
       companyId,
       branchId: branchId || null,
       journalEntryId: entry.id,
@@ -83,12 +80,9 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
       exchangeRate,
       baseAmount,
       description,
-      referenceNumber,
+      referenceNumber: referenceNumber || null,
+      ...(createdByUserId ? { createdById: createdByUserId } : {}),
     };
-
-    if (createdByUserId) {
-      voucherData.createdById = createdByUserId;
-    }
 
     const voucher = await tx.paymentVoucher.create({
       data: voucherData,
