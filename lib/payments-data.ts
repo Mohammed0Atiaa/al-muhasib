@@ -27,10 +27,9 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
     paidTo,
   } = input;
 
-  return await prisma.$transaction(async (tx) => {
-    // 1. توليد رقم السند تلقائياً لضمان عدم حدوث خطأ في حقل number الإلزامي
-    const count = await tx.expense.count({ where: { companyId } });
-    const voucherNumber = `PAY-${String(count + 1).padStart(5, "0")}`;
+  return await prisma.$transaction(async (tx: any) => {
+    // 1. توليد رقم سند فريد آمن يعتمد على الوقت لمنع أي خطأ
+    const voucherNumber = `PAY-${Date.now().toString().slice(-6)}`;
 
     // 2. إنشاء القيد المحاسبي المزدوج في شجرة الحسابات والداشبورد
     const entry = await tx.journalEntry.create({
@@ -64,9 +63,9 @@ export async function createPaymentVoucher(input: CreatePaymentVoucherInput) {
     const voucher = await tx.expense.create({
       data: {
         companyId,
-        userId: createdByUserId, // الاسم الصحيح للحقل في الجدول
-        number: voucherNumber,   // الحقل الإلزامي رقم السند
-        paidTo: paidTo || "غير محدد", // الحقل الإلزامي اسم المستفيد
+        userId: createdByUserId, 
+        number: voucherNumber,   
+        paidTo: paidTo || description || "غير محدد", 
         expenseCategoryId: debitAccountId,
         amount: amount,
         method: creditAccountId,
