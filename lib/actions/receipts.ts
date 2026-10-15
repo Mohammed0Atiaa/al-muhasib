@@ -2,9 +2,8 @@
 
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { getCurrentUser } from "../auth";
 import { prisma } from "../prisma";
-import { getMembership } from "../company";
+import { requireMember, AccessError } from "../company";
 
 class UserError extends Error {}
 
@@ -28,8 +27,7 @@ type Result =
 
 export async function createReceipt(input: unknown): Promise<Result> {
   try {
-    const user = await getCurrentUser();
-    const membership = await getMembership(user.id);
+    const { user, membership } = await requireMember("receipts:create");
     const companyId = membership.companyId;
 
     const parsed = ReceiptSchema.safeParse(input);
@@ -219,7 +217,7 @@ export async function createReceipt(input: unknown): Promise<Result> {
 
     return { ok: true, ...result };
   } catch (e) {
-    if (e instanceof UserError) return { ok: false, error: e.message };
+    if (e instanceof UserError || e instanceof AccessError) return { ok: false, error: e.message };
     console.error(e);
     return { ok: false, error: "حدث خطأ غير متوقع" };
   }
