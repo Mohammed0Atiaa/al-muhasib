@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getMembership } from "@/lib/company";
+import { can } from "@/lib/permissions";
 import TeamActions from "./team-actions";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +17,11 @@ const ROLE_NAMES: Record<string, string> = {
 
 export default async function TeamPage() {
   const user = await getCurrentUser();
-  const myMembership = await prisma.membership.findFirst({
-    where: { userId: user.id },
-  });
+  // عضوية فعّالة فقط (يعيد التوجيه للموقوفين) + صلاحية إدارة الفريق
+  const myMembership = await getMembership(user.id);
 
-  if (!myMembership) {
-    return <div className="p-6 text-center">لا توجد صلاحية مرتبطة بهذا الحساب.</div>;
+  if (!can(myMembership.role, "team:manage")) {
+    return <div className="p-6 text-center">ليس لديك صلاحية لعرض إدارة الفريق.</div>;
   }
 
   const members = await prisma.membership.findMany({
