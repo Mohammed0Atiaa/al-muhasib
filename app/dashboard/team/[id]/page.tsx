@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getMembership } from "@/lib/company";
+import { can } from "@/lib/permissions";
 import { stackServerApp } from "@/stack/server";
 import MemberDetailActions from "./member-detail-actions";
 
@@ -18,23 +20,22 @@ const ROLE_NAMES: Record<string, string> = {
 export default async function MemberDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const user = await getCurrentUser();
-  const myMembership = await prisma.membership.findFirst({
-    where: { userId: user.id },
-  });
+  const myMembership = await getMembership(user.id);
 
-  if (!myMembership) {
-    return <div className="p-6 text-center">لا توجد صلاحية.</div>;
+  if (!can(myMembership.role, "team:manage")) {
+    return <div className="p-6 text-center">ليس لديك صلاحية.</div>;
   }
 
-  // البحث عن العضو بواسطة الـ membership id
-  const member = await prisma.membership.findUnique({
-    where: { id: params.id },
+  // البحث عن العضو بواسطة الـ membership id داخل نفس الشركة فقط
+  const member = await prisma.membership.findFirst({
+    where: { id, companyId: myMembership.companyId },
   });
 
-  if (!member || member.companyId !== myMembership.companyId) {
+  if (!member) {
     return notFound();
   }
 
