@@ -1,21 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getMembership } from "@/lib/company";
+import { requireMember, AccessError } from "@/lib/company";
 
 class UserError extends Error {}
 
 export async function voidInvoice(invoiceId: string, reason: string) {
   try {
-    const user = await getCurrentUser();
-    const membership = await getMembership(user.id);
+    const { user, membership } = await requireMember("sales:void");
     const companyId = membership.companyId;
 
-    if (!["OWNER", "MANAGER"].includes(membership.role)) {
-      throw new UserError("ليس لديك صلاحية إلغاء الفواتير");
-    }
     if (!invoiceId) throw new UserError("معرف الفاتورة غير موجود");
     const cleanReason = (reason ?? "").trim();
     if (cleanReason.length < 3) throw new UserError("سبب الإلغاء مطلوب");
@@ -65,8 +60,9 @@ export async function voidInvoice(invoiceId: string, reason: string) {
               },
             });
           }
-          await tx.product.update({
-            where: { id: item.productId },
+          // updateMany حتى لا يفشل الإلغاء إن كان الصنف محذوفًا من بيانات قديمة
+          await tx.product.updateMany({
+            where: { id: item.productId, companyId },
             data: { quantity: { increment: item.quantity } },
           });
         }
@@ -121,7 +117,7 @@ export async function voidInvoice(invoiceId: string, reason: string) {
     revalidatePath("/sales");
     return { success: true };
   } catch (error) {
-    if (error instanceof UserError) {
+    if (error instanceof UserError || error instanceof AccessError) {
       return { success: false, error: error.message };
     }
     console.error("Void Invoice Error:", error);
