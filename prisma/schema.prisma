@@ -121,7 +121,7 @@ model Account {
   companyId String
   code      String
   name      String
-nature     String  @default("DEBIT")
+  nature    String  @default("DEBIT")
   parentCode String?
   isGroup    Boolean @default(false)
   type      String
@@ -291,6 +291,9 @@ model PaymentVoucher {
   paidTo            String
   expenseCategoryId String?
   amount            Decimal          @db.Decimal(18, 3)
+  currency          String?
+  exchangeRate      Decimal          @default(1) @db.Decimal(18, 8)
+  amountBase        Decimal?         @db.Decimal(18, 3)
   method            String           @default("CASH")
   notes             String?
   createdAt         DateTime         @default(now())
@@ -300,6 +303,7 @@ model PaymentVoucher {
 
   @@unique([companyId, number])
   @@index([companyId, expenseCategoryId])
+  @@index([companyId, createdAt])
 }
 
 // ---------------------------------------------------------
@@ -312,7 +316,9 @@ model JournalEntry {
   description     String
   sourceType      String
   sourceId        String?
-  reversalOfId    String?
+  reversalOfId    String?  @unique
+  currency        String?
+  exchangeRate    Decimal? @db.Decimal(18, 8)
   createdByUserId String
   createdAt       DateTime @default(now())
 
@@ -343,16 +349,21 @@ model AuditLog {
   action     String
   entityType String
   entityId   String
+  before     Json?
+  after      Json?
+  ip         String?
   reason     String?
   createdAt  DateTime @default(now())
 
   @@index([companyId, entityType, entityId])
+  @@index([companyId, createdAt])
 }
 
 model PlatformAdmin {
   userId    String   @id
   createdAt DateTime @default(now())
 }
+
 model AccountTemplate {
   code       String  @id
   name       String
