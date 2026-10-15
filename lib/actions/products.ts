@@ -1,36 +1,63 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "../auth";
-import { prisma } from "../prisma";
-import { getMembership } from "../company";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { prisma } from "../prisma";
+import { requireMember } from "../company";
 
 const ProductSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  price: z.coerce.number().nonnegative("Price must be non-negative"),
-  costPrice: z.coerce.number().nonnegative().optional(),
-  quantity: z.coerce.number().int().min(0, "Quantity must be non-negative"),
-  sku: z.string().optional(),
+  name: z.string().trim().min(1, "اسم الصنف مطلوب").max(150),
+  price: z.coerce.number().nonnegative("السعر لا يمكن أن يكون سالبًا"),
+  costPrice: z.coerce.number().nonnegative("التكلفة لا يمكن أن تكون سالبة").optional(),
+  quantity: z.coerce.number().int("الكمية يجب أن تكون عددًا صحيحًا").min(0, "الكمية لا يمكن أن تكون سالبة"),
+  sku: z.string().trim().max(60).optional(),
   lowStockAt: z.coerce.number().int().min(0).optional(),
 });
 
 export async function deleteProduct(formData: FormData) {
-  const user = await getCurrentUser();
-  const { companyId } = await getMembership(user.id);
+  const { user, companyId } = await requireMember("inventory:manage");
   const id = String(formData.get("id") || "");
+  if (!id) throw new Error("معرّف الصنف غير موجود");
 
-  try {
-    await prisma.product.deleteMany({ where: { id, companyId } });
-  } catch (error) {
-    console.error(error);
-    throw new Error("Cannot delete a product that is used in invoices.");
+  const product = await prisma.product.findFirst({
+    where: { id, companyId },
+    select: { id: true, name: true },
+  });
+  if (!product) throw new Error("الصنف غير موجود");
+
+  // لا يُحذف صنف استُخدم في فواتير (حتى لا تتعطل الفواتير والإلغاء لاحقًا)
+  const usedInInvoices = await prisma.invoiceItem.count({ where: { productId: id } });
+  if (usedInInvoices > 0) {
+    throw new Error("لا يمكن حذف صنف مستخدم في فواتير");
   }
+
+  // ولا يُحذف صنف له رصيد في أي مخزن
+  const stock = await prisma.warehouseStock.aggregate({
+    where: { productId: id },
+    _sum: { quantity: true },
+  });
+  if ((stock._sum.quantity ?? 0) > 0) {
+    throw new Error("لا يمكن حذف صنف له رصيد في المخزن");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.product.deleteMany({ where: { id, companyId } });
+    await tx.auditLog.create({
+      data: {
+        companyId,
+        userId: user.id,
+        action: "PRODUCT_DELETED",
+        entityType: "Product",
+        entityId: id,
+        reason: product.name,
+      },
+    });
+  });
 }
 
 export async function createProduct(formData: FormData) {
-  const user = await getCurrentUser();
-  const membership = await getMembership(user.id);
+  const { user, membership } = await requireMember("inventory:manage");
 
   const parsed = ProductSchema.safeParse({
     name: formData.get("name"),
@@ -40,9 +67,8 @@ export async function createProduct(formData: FormData) {
     sku: formData.get("sku") || undefined,
     lowStockAt: formData.get("lowStockAt") || undefined,
   });
-
   if (!parsed.success) {
-    throw new Error("Validation failed");
+    throw new Error(parsed.error.issues[0]?.message ?? "بيانات الصنف غير صحيحة");
   }
 
   const warehouse = await prisma.warehouse.findFirst({
@@ -53,14 +79,19 @@ export async function createProduct(formData: FormData) {
     orderBy: { id: "asc" },
   });
   if (!warehouse) {
-    throw new Error("No warehouse is set up for this company.");
+    throw new Error("لا يوجد مخزن مُعَدّ لهذه الشركة");
   }
 
   try {
     await prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
-          ...parsed.data,
+          name: parsed.data.name,
+          price: parsed.data.price,
+          costPrice: parsed.data.costPrice,
+          quantity: parsed.data.quantity,
+          sku: parsed.data.sku,
+          lowStockAt: parsed.data.lowStockAt,
           userId: user.id,
           companyId: membership.companyId,
         },
@@ -72,10 +103,23 @@ export async function createProduct(formData: FormData) {
           quantity: parsed.data.quantity,
         },
       });
+      await tx.auditLog.create({
+        data: {
+          companyId: membership.companyId,
+          userId: user.id,
+          action: "PRODUCT_CREATED",
+          entityType: "Product",
+          entityId: product.id,
+          reason: product.name,
+        },
+      });
     });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new Error("رمز الصنف (SKU) مستخدم مسبقًا في شركتك");
+    }
     console.error(error);
-    throw new Error("Failed to create product.");
+    throw new Error("تعذر إنشاء الصنف");
   }
 
   redirect("/inventory");
