@@ -1,64 +1,48 @@
 import { NextResponse } from "next/server";
-import { getReportContext } from "@/lib/reports";
-import { createPaymentVoucher } from "@/lib/payments-data";
+import { z } from "zod";
+import { requireMember } from "@/lib/company";
+import { apiError } from "@/lib/api-errors";
+import {
+  createPaymentVoucher,
+  EXPENSE_CATEGORY_KEYS,
+  PAYMENT_METHOD_ACCOUNTS,
+} from "@/lib/payments-data";
+
+const METHOD_KEYS = Object.keys(PAYMENT_METHOD_ACCOUNTS) as [
+  keyof typeof PAYMENT_METHOD_ACCOUNTS,
+  ...(keyof typeof PAYMENT_METHOD_ACCOUNTS)[],
+];
+
+const BodySchema = z.object({
+  paidTo: z.string().trim().min(2, "اسم المستفيد مطلوب").max(120),
+  expenseCategoryId: z.enum(EXPENSE_CATEGORY_KEYS, { message: "بند المصروف غير صحيح" }),
+  paymentMethod: z.enum(METHOD_KEYS, { message: "طريقة الدفع غير صحيحة" }),
+  amount: z.coerce.number({ message: "المبلغ غير صحيح" }).positive("يرجى إدخال مبلغ صحيح أكبر من الصفر"),
+  notes: z.string().trim().max(500).optional(),
+  branchId: z.string().min(1).optional(),
+  currency: z.string().length(3).optional(),
+});
 
 export async function POST(req: Request) {
   try {
-    const ctx = await getReportContext();
-    if (!ctx.allowed) {
-      return NextResponse.json({ error: "غير مصرح لك بإصدار سندات صرف" }, { status: 403 });
-    }
-
-    const body = await req.json();
-    console.log("=== PAYMENT VOUCHER BODY ===", JSON.stringify(body, null, 2));
-
-    // التقاط الحقول بالأسماء الصحيحة التي تأتي من واجهة المستخدم
-    const debitAccountId = body.expenseCategoryId || body.debitAccountId || body.accountId;
-    const creditAccountId = body.paymentMethod || body.creditAccountId || body.treasuryAccountId || body.cashAccountId;
-    
-    const amount = Number(body.amount ?? 0);
-    const currency = body.currency || ctx.baseCurrency;
-    const exchangeRate = Number(body.exchangeRate ?? 1);
-    
-    // دمج الملاحظات مع اسم المستفيد لضمان توثيق كامل
-    const paidTo = body.paidTo ? `إلى: ${body.paidTo}` : "";
-    const userNotes = body.notes || body.description || "";
-    const description = [paidTo, userNotes].filter(Boolean).join(" - ") || "سند صرف";
-    
-    const referenceNumber = body.referenceNumber || body.ref || null;
-    const entryDate = body.entryDate || body.date || new Date();
-    const branchId = body.branchId;
-
-    if (!debitAccountId) {
-      return NextResponse.json({ error: "يرجى اختيار فئة أو حساب المصروف" }, { status: 400 });
-    }
-    if (!creditAccountId) {
-      return NextResponse.json({ error: "يرجى اختيار طريقة الدفع أو حساب الخزينة/البنك" }, { status: 400 });
-    }
-    if (!amount || amount <= 0) {
-      return NextResponse.json({ error: "يرجى إدخال مبلغ صحيح أكبر من الصفر" }, { status: 400 });
-    }
+    const { user, membership, companyId } = await requireMember("payments:create");
+    const body = BodySchema.parse(await req.json());
 
     const result = await createPaymentVoucher({
-      companyId: ctx.companyId,
-      branchId: branchId || ctx.forcedBranchId || null,
-      entryDate: new Date(entryDate),
-      debitAccountId,
-      creditAccountId,
-      amount,
-      currency,
-      exchangeRate,
-      description,
-      referenceNumber,
-      createdByUserId: ctx.userId,
+      companyId,
+      userId: user.id,
+      requestedBranchId: body.branchId ?? null,
+      forcedBranchId: membership.branchId ?? null,
+      category: body.expenseCategoryId,
+      method: body.paymentMethod,
+      paidTo: body.paidTo,
+      amount: body.amount,
+      notes: body.notes,
+      currency: body.currency,
     });
 
     return NextResponse.json({ success: true, ...result });
-  } catch (error: any) {
-    console.error("Error creating payment voucher:", error);
-    return NextResponse.json(
-      { error: error.message || "حدث خطأ أثناء حفظ سند الصرف" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return apiError(error, "حدث خطأ أثناء حفظ سند الصرف");
   }
 }
