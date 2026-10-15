@@ -1,24 +1,25 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getMembership } from "@/lib/company";
+import { can } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
 interface SalesPageProps {
-  searchParams: { q?: string };
+  searchParams: Promise<{ q?: string }>;
 }
 
 export default async function SalesListPage({ searchParams }: SalesPageProps) {
-  const query = searchParams.q?.trim() || "";
+  const sp = await searchParams;
+  const query = sp.q?.trim() || "";
 
   // 1. جلب المستخدم الحالي وعضويته لمعرفة شركته
   const user = await getCurrentUser();
-  const myMembership = await prisma.membership.findFirst({
-    where: { userId: user.id },
-  });
+  const myMembership = await getMembership(user.id);
 
-  if (!myMembership) {
-    return <div className="p-6 text-center text-red-600">لا توجد صلاحية أو شركة مرتبطة بهذا الحساب.</div>;
+  if (!can(myMembership.role, "sales:view")) {
+    return <div className="p-6 text-center text-red-600">ليس لديك صلاحية لعرض الفواتير.</div>;
   }
 
   // 2. البحث في الفواتير مع العزل التام برقم الشركة companyId
